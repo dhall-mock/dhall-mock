@@ -8,3 +8,5 @@ authors = [
 edition = "2018"
 
 [dependencies]
+serde = "1.0"
+serde_dhall = "0.5"
