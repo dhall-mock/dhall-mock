@@ -1,0 +1,11 @@
+---
+name: A New Issue
+about: Use this for next step in dev for 0.0.1 milestone
+title: ''
+labels: ''
+assignees: ''
+
+---
+## Goal
+
+## Technical informations (Optional)
