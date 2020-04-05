@@ -1,5 +1,7 @@
 use anyhow::{Context, Error};
-use serde::Deserialize;
+use crate::expectation::model::Expectation;
+
+mod expectation;
 
 fn main() -> Result<(), Error> {
     println!("Hello from dhall mock project 👋");
@@ -7,23 +9,18 @@ fn main() -> Result<(), Error> {
     // Some Dhall data
     let data = r###"
         let Mock = ./dhall/Mock/package.dhall
-        in Mock.HttpMethod.GET
+        in { request  = { method  = Some Mock.HttpMethod.GET
+                 , path    = Some "/greet/pwet"
+                 }
+            , response = { statusCode   = Some +200
+                         , statusReason = None Text
+                         , body         = Some "Hello, pwet !"
+                         }
+            }
     "###;
 
     // Deserialize it to a Rust type.
-    let method: HttpMethod = serde_dhall::from_str(data)
-        .parse()
-        .context("Parsing dhall configuration")?;
-
-    assert_eq!(method, HttpMethod::GET);
-
+    let method: Expectation = serde_dhall::from_str(data).parse()?;
+    println!("Loaded from dhall configuration : {:?}", method);
     Ok(())
-}
-
-#[derive(Debug, Deserialize, PartialEq)]
-enum HttpMethod {
-    HEAD,
-    GET,
-    PUT,
-    POST,
 }
