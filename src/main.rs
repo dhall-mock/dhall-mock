@@ -7,7 +7,7 @@ fn main() -> Result<(), Error> {
     // Some Dhall data
     let data = r###"
         let Mock = ./dhall/Mock/package.dhall
-        in Mock.HttpMethod.UNKNOW
+        in Mock.HttpMethod.GET
     "###;
 
     // Deserialize it to a Rust type.
