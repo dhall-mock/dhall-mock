@@ -24,5 +24,6 @@ fn main() -> Result<(), Error> {
         .parse()
         .context("Error parsing shall configuration")?;
     println!("Loaded from dhall configuration : {:?}", method);
+
     Ok(())
 }
