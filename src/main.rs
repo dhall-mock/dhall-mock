@@ -1,5 +1,5 @@
-use anyhow::{Context, Error};
 use crate::expectation::model::Expectation;
+use anyhow::{Context, Error};
 
 mod expectation;
 
@@ -10,8 +10,8 @@ fn main() -> Result<(), Error> {
     let data = r###"
         let Mock = ./dhall/Mock/package.dhall
         in { request  = { method  = Some Mock.HttpMethod.GET
-                 , path    = Some "/greet/pwet"
-                 }
+                         , path    = Some "/greet/pwet"
+                         }
             , response = { statusCode   = Some +200
                          , statusReason = None Text
                          , body         = Some "Hello, pwet !"
@@ -20,7 +20,9 @@ fn main() -> Result<(), Error> {
     "###;
 
     // Deserialize it to a Rust type.
-    let method: Expectation = serde_dhall::from_str(data).parse()?;
+    let method: Expectation = serde_dhall::from_str(data)
+        .parse()
+        .context("Error parsing shall configuration")?;
     println!("Loaded from dhall configuration : {:?}", method);
     Ok(())
 }
