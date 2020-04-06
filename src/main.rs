@@ -1,10 +1,13 @@
 use crate::expectation::model::Expectation;
 use anyhow::{Context, Error};
+use env_logger::Env;
+use log::info;
 
 mod expectation;
 
 fn main() -> Result<(), Error> {
-    println!("Hello from dhall mock project 👋");
+    start_logger();
+    info!("Hello from dhall mock project 👋");
 
     // Some Dhall data
     let data = r###"
@@ -23,7 +26,12 @@ fn main() -> Result<(), Error> {
     let method: Expectation = serde_dhall::from_str(data)
         .parse()
         .context("Error parsing shall configuration")?;
-    println!("Loaded from dhall configuration : {:?}", method);
+    info!("Loaded from dhall configuration : {:?}", method);
 
     Ok(())
+}
+
+fn start_logger() {
+    let env = Env::new().filter_or("RUST_LOG", "INFO");
+    env_logger::init_from_env(env);
 }
