@@ -240,6 +240,7 @@ mod test {
         assert_eq!(expected, serde_dhall::from_str(data).parse().unwrap());
     }
 
+    #[test]
     fn test_deserialize_expectation_fail() {
         let data = r###"
             let Mock = ./dhall/Mock/package.dhall
