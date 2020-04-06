@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use std::cmp::PartialEq;
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Clone, Copy)]
 pub enum HttpMethod {
     HEAD,
     GET,
@@ -9,13 +9,13 @@ pub enum HttpMethod {
     POST,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Clone)]
 pub struct HttpRequest {
     pub method: Option<HttpMethod>,
     pub path: Option<String>,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Clone)]
 pub struct HttpResponse {
     #[serde(rename = "statusCode")]
     pub status_code: Option<u16>,
@@ -24,7 +24,7 @@ pub struct HttpResponse {
     pub body: Option<String>,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Clone)]
 pub struct Expectation {
     pub request: HttpRequest,
     pub response: HttpResponse,
