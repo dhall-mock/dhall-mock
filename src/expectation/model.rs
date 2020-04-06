@@ -7,6 +7,7 @@ pub enum HttpMethod {
     GET,
     PUT,
     POST,
+    DELETE,
 }
 
 #[derive(Debug, Deserialize, PartialEq, Clone)]

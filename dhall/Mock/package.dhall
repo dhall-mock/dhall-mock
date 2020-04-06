@@ -1,4 +1,4 @@
-let HttpMethod = < HEAD | PUT | POST | GET >
+let HttpMethod = < HEAD | PUT | POST | GET | DELETE >
 
 let HttpRequest : Type
     = { method  : Optional HttpMethod

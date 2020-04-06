@@ -4,9 +4,9 @@ let expectations = [
                        { request  = { method  = Some Mock.HttpMethod.GET
                                    , path    = Some "/greet/pwet"
                                    }
-                       , response = { statusCode   = Some +200
+                       , response = { statusCode   = Some +201
                                        , statusReason = None Text
-                                       , body         = Some "Hello, pwet !"
+                                       , body         = Some "Hello, pwet ! Comment que ca biche ?"
                                        }
                       }
                       ,{ request  = { method  = Some Mock.HttpMethod.GET
