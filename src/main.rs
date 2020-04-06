@@ -1,34 +1,28 @@
-use crate::expectation::model::Expectation;
-use anyhow::{Context, Error};
+use std::env;
+
+use anyhow::{anyhow, Error};
 use env_logger::Env;
 use log::info;
 
+use crate::compiler::{compile_configuration, load_file};
+use crate::expectation::model::Expectation;
+
 mod expectation;
+mod compiler;
 
 fn main() -> Result<(), Error> {
     start_logger();
+
+    let args: Vec<String> = env::args().collect();
+    let filename = args.get(1).ok_or(anyhow!("Program need 1 argument : File configuration path"))?;
+
     info!("Hello from dhall mock project 👋");
+    let configuration = load_file(filename)?;
+    let expectations =  compile_configuration(&configuration)?;
 
-    // Some Dhall data
-    let data = r###"
-        let Mock = ./dhall/Mock/package.dhall
-        in { request  = { method  = Some Mock.HttpMethod.GET
-                         , path    = Some "/greet/pwet"
-                         }
-            , response = { statusCode   = Some +200
-                         , statusReason = None Text
-                         , body         = Some "Hello, pwet !"
-                         }
-            }
-    "###;
-
-    // Deserialize it to a Rust type.
-    let method: Expectation = serde_dhall::from_str(data)
-        .parse()
-        .context("Error parsing shall configuration")?;
-    info!("Loaded from dhall configuration : {:?}", method);
-
+    info!("Loaded expectations : {:?}", expectations);
     Ok(())
+
 }
 
 fn start_logger() {

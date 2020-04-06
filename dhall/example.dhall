@@ -2,7 +2,7 @@ let Prelude = https://prelude.dhall-lang.org/package.dhall
 
 let XML = https://prelude.dhall-lang.org/XML/package.dhall
 
-let Mock = ./Mock/package.dhall
+let Mock = ./dhall/Mock/package.dhall
 
 let User : Type = 
     { userId        : Text
