@@ -1,5 +1,5 @@
 use crate::expectation::model::Expectation;
-use anyhow::{Error, Context};
+use anyhow::{Context, Error};
 use std::fs;
 
 pub fn load_file(name: &str) -> Result<String, Error> {
@@ -15,13 +15,14 @@ pub fn compile_configuration(configuration_content: &str) -> Result<Vec<Expectat
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::expectation::model::{HttpRequest, HttpMethod, HttpResponse};
+    use crate::expectation::model::{HttpMethod, HttpRequest, HttpResponse};
 
     #[test]
     fn test_compile_configuration() {
         let data = r###"
             let Mock = ./dhall/Mock/package.dhall
-            in { request  = { method  = Some Mock.HttpMethod.GET
+
+            let expectations = [{ request  = { method  = Some Mock.HttpMethod.GET
                              , path    = Some "/greet/pwet"
                              }
                 , response = { statusCode   = Some +200
@@ -29,18 +30,21 @@ mod test {
                              , body         = Some "Hello, pwet !"
                              }
                 }
+            ]
+
+            in expectations
         "###;
 
         let expected = vec![Expectation {
             request: HttpRequest {
                 method: Some(HttpMethod::GET),
-                path: Some("/greet/pwet".to_string())
+                path: Some("/greet/pwet".to_string()),
             },
             response: HttpResponse {
                 status_code: Some(200),
                 status_reason: None,
-                body: Some("Hello, pwet !".to_string())
-            }
+                body: Some("Hello, pwet !".to_string()),
+            },
         }];
 
         let actual = compile_configuration(data).unwrap();
@@ -64,6 +68,4 @@ mod test {
 
         assert!(compile_configuration(data).is_err())
     }
-
 }
-
