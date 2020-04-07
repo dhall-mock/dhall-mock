@@ -5,9 +5,12 @@ use env_logger::Env;
 use log::info;
 
 use crate::compiler::{compile_configuration, load_file};
+use crate::expectation::model::HttpMethod;
+use crate::mock::{look_for_expectation, IncomingRequest};
 
 mod compiler;
 mod expectation;
+mod mock;
 
 fn main() -> Result<(), Error> {
     start_logger();
@@ -21,7 +24,15 @@ fn main() -> Result<(), Error> {
     let configuration = load_file(filename)?;
     let expectations = compile_configuration(&configuration)?;
 
+    let incoming_request = IncomingRequest {
+        method: HttpMethod::GET,
+        path: String::from("/greet/wololo"),
+    };
+
+    let selected_expectation = look_for_expectation(&expectations, incoming_request);
+
     info!("Loaded expectations : {:?}", expectations);
+    info!("selected expectation : {:?}", selected_expectation);
     Ok(())
 }
 

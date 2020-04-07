@@ -10,11 +10,11 @@ let expectations = [
                                        }
                       }
                       ,{ request  = { method  = Some Mock.HttpMethod.GET
-                                   , path    = Some "/greet/pwet"
+                                   , path    = Some "/greet/wololo"
                                    }
                       , response = { statusCode   = Some +200
                                    , statusReason = None Text
-                                   , body         = Some "Hello, pwet !"
+                                   , body         = Some "Hello, Wololo !"
                                    }
                       }
                    ]
