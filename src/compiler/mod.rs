@@ -25,8 +25,9 @@ impl ConfLoadingFuture {
         let thread_shared_state = shared_state.clone();
         let file_name = String::from(name);
 
-        let thread_builder = thread::Builder::new().name("config-loader".into());
-        //.stack_size(512 * 1024);
+        let thread_builder = thread::Builder::new()
+            .name("config-loader".into())
+            .stack_size(3 * 1024 * 1024);
 
         thread_builder
             .spawn(move || {
