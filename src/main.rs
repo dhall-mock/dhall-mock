@@ -1,8 +1,9 @@
-use anyhow::{Context, Error};
+use anyhow::Error;
 use env_logger::Env;
-use log::{debug, info, warn};
+use log::{debug, info};
 
-use crate::compiler::{compile_configuration, load_file, ConfLoadingFuture};
+use crate::compiler::ConfLoadingFuture;
+use crate::expectation::model::Expectation;
 use crate::web::State;
 use std::sync::{Arc, RwLock};
 
@@ -20,24 +21,13 @@ async fn main() -> Result<(), Error> {
 
     info!("Start dhall mock project 👋");
 
-    let expectations = cli_args
-        .configuration_files
-        .iter()
-        .flat_map(|configuration_file| {
-            debug!("Loading configuration file {}", configuration_file);
+    let mut expectations: Vec<Expectation> = vec![];
+    for configuration_file in cli_args.configuration_files {
+        debug!("Loading configuration file {}", configuration_file);
 
-            // TODO how can I run my future?
-            let configuration_result = ConfLoadingFuture.load_file(configuration_file);
-
-            match configuration_result {
-                Ok(expectations) => expectations.into_iter(),
-                Err(e) => {
-                    warn!("{}", e);
-                    Vec::new().into_iter()
-                }
-            }
-        })
-        .collect();
+        let res = &mut ConfLoadingFuture::load_file(&configuration_file).await;
+        expectations.append(res);
+    }
     info!("Loaded expectations : {:?}", expectations);
 
     let state = Arc::new(RwLock::new(State { expectations }));

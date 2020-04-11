@@ -1,11 +1,13 @@
 use crate::expectation::model::Expectation;
 use anyhow::{Context, Error};
+use log::warn;
 use std::fs;
+use std::thread;
 use std::{
     future::Future,
     pin::Pin,
     sync::{Arc, Mutex},
-    task, thread,
+    task,
 };
 
 pub struct ConfLoadingFuture {
@@ -21,23 +23,31 @@ impl ConfLoadingFuture {
 
         // Spawn the new thread
         let thread_shared_state = shared_state.clone();
-        let thread_name = String::from(name);
-        thread::spawn(move || {
-            let mut shared_state = thread_shared_state.lock().unwrap();
+        let file_name = String::from(name);
 
-            let configuration_result = load_file(thread_name.as_ref())
-                .and_then(|configuration| compile_configuration(&configuration))
-                .context("Error load configuration");
+        let thread_builder = thread::Builder::new().name("config-loader".into());
+        //.stack_size(512 * 1024);
 
-            match configuration_result {
-                Ok(expectations) => shared_state.res = Some(expectations),
-                Err(e) => shared_state.res = Some(Vec::new()),
-            }
+        thread_builder
+            .spawn(move || {
+                let configuration_result = load_file(file_name.as_ref())
+                    .and_then(|configuration| compile_configuration(&configuration))
+                    .context("Error load configuration");
 
-            if let Some(waker) = shared_state.waker.take() {
-                waker.wake()
-            }
-        });
+                let mut shared_state = thread_shared_state.lock().unwrap();
+                match configuration_result {
+                    Ok(expectations) => shared_state.res = Some(expectations),
+                    Err(e) => {
+                        warn!("{}", e);
+                        shared_state.res = Some(Vec::new())
+                    }
+                }
+
+                if let Some(waker) = shared_state.waker.take() {
+                    waker.wake()
+                }
+            })
+            .unwrap();
 
         ConfLoadingFuture { shared_state }
     }
