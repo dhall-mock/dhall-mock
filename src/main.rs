@@ -2,7 +2,7 @@ use anyhow::{Context, Error};
 use env_logger::Env;
 use log::{debug, info, warn};
 
-use crate::compiler::{compile_configuration, load_file};
+use crate::compiler::{compile_configuration, load_file, ConfLoadingFuture};
 use crate::web::State;
 use std::sync::{Arc, RwLock};
 
@@ -25,9 +25,10 @@ async fn main() -> Result<(), Error> {
         .iter()
         .flat_map(|configuration_file| {
             debug!("Loading configuration file {}", configuration_file);
-            let configuration_result = load_file(configuration_file)
-                .and_then(|configuration| compile_configuration(&configuration))
-                .context("Error loading configuration");
+
+            // TODO how can I run my future?
+            let configuration_result = ConfLoadingFuture.load_file(configuration_file);
+
             match configuration_result {
                 Ok(expectations) => expectations.into_iter(),
                 Err(e) => {
