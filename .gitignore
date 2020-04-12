@@ -6,3 +6,6 @@
 # IntelliJ
 .idea
 *.iml
+
+# vim
+rusty-tags.vi

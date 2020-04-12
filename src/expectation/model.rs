@@ -1,6 +1,12 @@
 use serde::Deserialize;
 use std::cmp::PartialEq;
 
+#[derive(Debug)]
+pub struct IncomingRequest {
+    pub method: HttpMethod,
+    pub path: String,
+}
+
 #[derive(Debug, Deserialize, PartialEq, Clone, Copy)]
 pub enum HttpMethod {
     HEAD,
@@ -31,9 +37,37 @@ pub struct Expectation {
     pub response: HttpResponse,
 }
 
+impl Expectation {
+    pub fn test(&self, req: &IncomingRequest) -> bool {
+        let match_method = self
+            .request
+            .method
+            .as_ref()
+            .map(|m| m == &req.method)
+            .unwrap_or(true);
+
+        let match_path = self
+            .request
+            .path
+            .as_ref()
+            .map(|p| p == &req.path)
+            .unwrap_or(true);
+
+        match_method && match_path
+    }
+
+    pub fn look_for_expectation<'a, 'b>(
+        expectations: &'a Vec<Expectation>,
+        req: &'b IncomingRequest,
+    ) -> Option<&'a Expectation> {
+        expectations.iter().find(|e| e.test(req))
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::expectation::model::{HttpRequest, HttpResponse};
 
     #[test]
     fn test_deserialize_http_method() {
@@ -250,5 +284,121 @@ mod test {
             }
         "###;
         assert!(serde_dhall::from_str(data).parse::<Expectation>().is_err());
+    }
+
+    #[test]
+    fn test_accept_matching_method() {
+        let req = HttpRequest {
+            method: Some(HttpMethod::GET),
+            path: None,
+        };
+
+        let resp = HttpResponse {
+            status_code: Some(200),
+            status_reason: None,
+            body: None,
+        };
+
+        let exp = Expectation {
+            request: req,
+            response: resp,
+        };
+
+        let income = IncomingRequest {
+            method: HttpMethod::GET,
+            path: String::from("/foo/bar"),
+        };
+
+        let v = vec![exp.clone()];
+        let tested = Expectation::look_for_expectation(&v, &income);
+
+        assert_eq!(Some(&exp), tested);
+    }
+
+    #[test]
+    fn test_refuse_wrong_method() {
+        let req = HttpRequest {
+            method: Some(HttpMethod::POST),
+            path: None,
+        };
+
+        let resp = HttpResponse {
+            status_code: Some(200),
+            status_reason: None,
+            body: None,
+        };
+
+        let exp = Expectation {
+            request: req,
+            response: resp,
+        };
+
+        let income = IncomingRequest {
+            method: HttpMethod::GET,
+            path: String::from("/foo/bar"),
+        };
+
+        let v = vec![exp.clone()];
+        let tested = Expectation::look_for_expectation(&v, &income);
+
+        assert_eq!(None, tested);
+    }
+
+    #[test]
+    fn test_accept_matching_path() {
+        let req = HttpRequest {
+            method: None,
+            path: Some(String::from("/foo/bar")),
+        };
+
+        let resp = HttpResponse {
+            status_code: Some(200),
+            status_reason: None,
+            body: None,
+        };
+
+        let exp = Expectation {
+            request: req,
+            response: resp,
+        };
+
+        let income = IncomingRequest {
+            method: HttpMethod::GET,
+            path: String::from("/foo/bar"),
+        };
+
+        let v = vec![exp.clone()];
+        let tested = Expectation::look_for_expectation(&v, &income);
+
+        assert_eq!(Some(&exp), tested);
+    }
+
+    #[test]
+    fn test_refuse_wrong_path() {
+        let req = HttpRequest {
+            method: None,
+            path: Some(String::from("/foo/bar")),
+        };
+
+        let resp = HttpResponse {
+            status_code: Some(200),
+            status_reason: None,
+            body: None,
+        };
+
+        let exp = Expectation {
+            request: req,
+            response: resp,
+        };
+
+        let income = IncomingRequest {
+            method: HttpMethod::GET,
+            path: String::from("/users"),
+        };
+
+        let v = vec![exp];
+        let tested = Expectation::look_for_expectation(&v, &income);
+
+        assert_eq!(None, tested);
     }
 }

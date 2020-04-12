@@ -7,8 +7,7 @@ use hyper::{Body, Method, Request, Response, Server, StatusCode};
 
 use anyhow::{anyhow, Context, Error};
 
-use crate::expectation::model::{Expectation, HttpMethod};
-use crate::mock::{look_for_expectation, IncomingRequest};
+use crate::expectation::model::{Expectation, HttpMethod, IncomingRequest};
 
 impl TryFrom<&Method> for HttpMethod {
     type Error = anyhow::Error;
@@ -76,7 +75,7 @@ async fn handler<T>(req: Request<T>, state: Arc<RwLock<State>>) -> Result<Respon
         .ok()
         // Search for a matching expectation
         .and_then(|incoming_request| {
-            look_for_expectation(&read_state.expectations, incoming_request)
+            Expectation::look_for_expectation(&read_state.expectations, &incoming_request)
         })
         // Convert expectation in a http response (can fail) -> Option<Result<Response<Body>, Error>>
         .map(|expectation| Response::try_from(expectation))
