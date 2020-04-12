@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use std::cmp::PartialEq;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 pub struct IncomingRequest {
@@ -62,6 +63,36 @@ impl Expectation {
     ) -> Option<&'a Expectation> {
         expectations.iter().find(|e| e.test(req))
     }
+}
+
+impl Display for Expectation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(
+            f,
+            "Expectation {{ \n\tRequest {} {} \n\tResponse {} {} \n\t\t{} \n}}",
+            self.request
+                .method
+                .as_ref()
+                .map(|method| format!("{:?}", method))
+                .unwrap_or("_".to_string()),
+            self.request.path.as_ref().unwrap_or(&"_".to_string()),
+            self.response
+                .status_code
+                .map(|method| format!("{}", method))
+                .unwrap_or("_".to_string()),
+            self.response
+                .status_reason
+                .as_ref()
+                .unwrap_or(&"_".to_string()),
+            self.response.body.as_ref().unwrap_or(&"_".to_string())
+        )
+    }
+}
+
+pub fn display_expectations(expectations: &Vec<Expectation>) -> String {
+    expectations.iter().fold(String::new(), |acc, expectation| {
+        format!("{}\n{}", acc, expectation)
+    })
 }
 
 #[cfg(test)]
