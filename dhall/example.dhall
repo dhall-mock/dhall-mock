@@ -1,10 +1,10 @@
-let Prelude = https://prelude.dhall-lang.org/package.dhall
+let map = https://prelude.dhall-lang.org/List/map
 
 let XML = https://prelude.dhall-lang.org/XML/package.dhall
 
 let Mock = ./dhall/Mock/package.dhall
 
-let User : Type = 
+let User : Type =
     { userId        : Text
     , username      : Text
     , createdDate   : Text
@@ -20,10 +20,15 @@ let users = [ { userId        = "7e38a4e7-5bd8-4011-9391-98ffdca58c06"
               , username      = "robert"
               , createdDate   = "2020-01-03T17:16:24"
               , lastLoginDate = "2020-04-04T13:00:02"
+              },
+              { userId        = "4c30413c-f04c-4a1f-ad22-6d8b9e84275b"
+              , username      = "gérard"
+              , createdDate   = "2019-08-04T11:12:45"
+              , lastLoginDate = "2020-04-05T10:15:09"
               }
             ]
 
-let mkUserBody = \(u : User) -> 
+let mkUserBody = \(u : User) ->
     XML.element { attributes = [ { mapKey = "userId"       , mapValue = u.userId }
                                , { mapKey = "username"     , mapValue = u.username }
                                , { mapKey = "createdDate"  , mapValue = u.createdDate }
@@ -43,4 +48,4 @@ let mkUserExpectation = \(user: User) ->
                  }
     }
 
-in Prelude.List.map User Mock.Expectation mkUserExpectation users
+in map User Mock.Expectation mkUserExpectation users
