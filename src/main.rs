@@ -9,7 +9,6 @@ use std::sync::{Arc, RwLock};
 mod cli;
 mod compiler;
 mod expectation;
-mod mock;
 mod web;
 
 #[tokio::main]
