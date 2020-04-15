@@ -3,57 +3,41 @@ use env_logger::Env;
 use log::{debug, info, warn};
 
 use crate::compiler::{compile_configuration, load_file};
-use crate::expectation::model::display_expectations;
-use crate::web::State;
+use crate::expectation::model::{Expectation, display_expectations};
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
-use tokio::sync::mpsc::{channel, Receiver};
+use tokio::sync::mpsc::Receiver;
 use tokio::task::spawn_blocking;
 
-mod cli;
+pub mod cli;
 mod compiler;
 mod expectation;
 mod web;
 
-fn main() -> Result<(), Error> {
-    start_logger();
+pub struct State {
+    pub expectations: Vec<Expectation>,
+}
 
-    let cli_args = cli::load_cli_args();
-
-    let loading_rt = tokio::runtime::Builder::new()
+pub fn create_loader_runtime() -> Result<tokio::runtime::Runtime, Error> {
+    tokio::runtime::Builder::new()
         .threaded_scheduler()
         .thread_stack_size(8 * 1024 * 1024)
         .core_threads(1)
         .max_threads(3)
-        .build()?;
-
-    let mut web_rt = tokio::runtime::Runtime::new()?;
-
-    info!("Start dhall mock project 👋");
-    let (mut tx, rx) = channel(10);
-    let state = Arc::new(RwLock::new(State {
-        expectations: vec![],
-    }));
-
-    let compiler_state = state.clone();
-    loading_rt.spawn(compiler_executor(rx, compiler_state));
-
-    let web_state = state.clone();
-    web_rt.block_on(async move {
-        for configuration in cli_args.configuration_files.iter() {
-            debug!("Send configuration file {}", configuration);
-            tx.send(configuration.clone()).await?;
-        }
-        web::web_server(web_state, cli_args.http_bind).await
-    })
+        .build()
+        .context("Error creating loader tokio runtime")
 }
 
-fn start_logger() {
+pub fn start_logger() {
     let env = Env::new().filter_or("RUST_LOG", "INFO");
     env_logger::init_from_env(env);
 }
 
-async fn compiler_executor(mut receiver: Receiver<String>, state: Arc<RwLock<State>>) {
+pub async fn run_web_server(http_bind: String, state: Arc<RwLock<State>>) -> Result<(), Error> {
+    web::web_server(state, http_bind).await
+}
+
+pub async fn compiler_executor(mut receiver: Receiver<String>, state: Arc<RwLock<State>>) {
     debug!("Dhall compiler task started");
     while let Some(config) = receiver.recv().await {
         debug!("Received config to load from file {}", config);

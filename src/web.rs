@@ -6,7 +6,7 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
 
 use anyhow::{anyhow, Context, Error};
-
+use super::State;
 use crate::expectation::model::{Expectation, HttpMethod, IncomingRequest};
 
 impl TryFrom<&Method> for HttpMethod {
@@ -51,10 +51,6 @@ impl TryFrom<&Expectation> for Response<Body> {
             )
             .context(format!("Error creating http response for {:?}", value))
     }
-}
-
-pub struct State {
-    pub expectations: Vec<Expectation>,
 }
 
 fn not_found_response() -> Result<Response<Body>, Error> {
