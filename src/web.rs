@@ -1,4 +1,4 @@
-use log::{debug, info};
+use log::debug;
 use std::convert::TryFrom;
 use std::sync::{Arc, RwLock};
 
@@ -89,7 +89,7 @@ async fn handler<T>(req: Request<T>, state: Arc<RwLock<State>>) -> Result<Respon
         ))
 }
 
-pub async fn web_server(state: Arc<RwLock<State>>, http_bind: String) -> Result<(), Error> {
+pub async fn web_server(state: Arc<RwLock<State>>, http_bind: String) -> Result<Server, Error> {
     let make_svc = make_service_fn(move |_| {
         let state = Arc::clone(&state);
         async {
@@ -106,9 +106,24 @@ pub async fn web_server(state: Arc<RwLock<State>>, http_bind: String) -> Result<
 
     let addr = http_bind
         .parse()
-        .context(format!("{} is not a valid ip config", http_bind))?;
+        .context(format!("{} is not a valid ip config", http_bind))
+        .unwrap();
+
     let server = Server::bind(&addr).serve(make_svc);
 
-    info!("Http server started on http://{}", addr);
-    server.await.context("Error on web server execution")
+    // Prepare some signal for when the server should start shutting down...
+    //let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+    //let graceful = server.with_graceful_shutdown(async {
+    //    rx.await.ok();
+    //});
+
+    //// Await the `server` receiving the signal...
+    //if let Err(e) = graceful.await {
+    //    eprintln!("server error: {}", e);
+    //}
+
+    //info!("Http server started on http://{}", addr);
+
+    //Ok(tx)
+    Ok(server)
 }
