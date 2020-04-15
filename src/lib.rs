@@ -7,14 +7,16 @@ use crate::web::State;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 use tokio::sync::mpsc::{channel, Receiver};
+use tokio::sync::oneshot;
 use tokio::task::spawn_blocking;
+use tokio::task::JoinHandle;
 
 pub mod cli;
 mod compiler;
 mod expectation;
 mod web;
 
-pub fn run(cli_args: cli::CliOpt) -> Result<(), Error> {
+pub async fn run(cli_args: cli::CliOpt) -> Result<(oneshot::Sender<()>, JoinHandle<()>), Error> {
     let loading_rt = tokio::runtime::Builder::new()
         .threaded_scheduler()
         .thread_stack_size(8 * 1024 * 1024)
@@ -31,18 +33,19 @@ pub fn run(cli_args: cli::CliOpt) -> Result<(), Error> {
     let compiler_state = state.clone();
     loading_rt.spawn(compiler_executor(rx, compiler_state));
 
-    let web_state = state.clone();
-    let mut web_rt = tokio::runtime::Runtime::new()?;
-    web_rt.block_on(async move {
-        for configuration in cli_args.configuration_files.iter() {
-            debug!("Send configuration file {}", configuration);
-            tx.send(configuration.clone()).await?;
-        }
-        info!("PROUT 1");
-        let _ = web::web_server(web_state, cli_args.http_bind).await?;
-        info!("PROUT 2");
-        Ok(())
-    })
+    for configuration in cli_args.configuration_files.iter() {
+        debug!("Send configuration file {}", configuration);
+        tx.send(configuration.clone()).await?;
+    }
+
+    let (tx_server, rx_server) = tokio::sync::oneshot::channel();
+
+    let join =
+        tokio::task::spawn(
+            async move { web::web_server(state, cli_args.http_bind, rx_server).await },
+        );
+
+    Ok((tx_server, join))
 }
 
 async fn compiler_executor(mut receiver: Receiver<String>, state: Arc<RwLock<State>>) {

@@ -8,8 +8,13 @@ fn main() -> Result<(), Error> {
 
     let cli_args = dhall_mock::cli::load_cli_args();
 
-    let _ = dhall_mock::run(cli_args);
-    Ok(())
+    let mut web_rt = tokio::runtime::Runtime::new()?;
+
+    web_rt.block_on(async {
+        let (_, join) = dhall_mock::run(cli_args).await.unwrap();
+        join.await.unwrap();
+        Ok(())
+    })
 }
 
 fn start_logger() {
