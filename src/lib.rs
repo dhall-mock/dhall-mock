@@ -3,7 +3,7 @@ use env_logger::Env;
 use log::{debug, info, warn};
 
 use crate::compiler::{compile_configuration, load_file};
-use crate::expectation::model::{Expectation, display_expectations};
+use crate::expectation::model::{display_expectations, Expectation};
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 use tokio::sync::mpsc::Receiver;
@@ -33,8 +33,12 @@ pub fn start_logger() {
     env_logger::init_from_env(env);
 }
 
-pub async fn run_web_server(http_bind: String, state: Arc<RwLock<State>>) -> Result<(), Error> {
-    web::web_server(state, http_bind).await
+pub async fn run_web_server(
+    http_bind: String,
+    state: Arc<RwLock<State>>,
+    close_channel: tokio::sync::oneshot::Receiver<()>,
+) -> Result<(), Error> {
+    web::web_server(state, http_bind, close_channel).await
 }
 
 pub async fn compiler_executor(mut receiver: Receiver<String>, state: Arc<RwLock<State>>) {
