@@ -9,14 +9,16 @@ use std::time::Instant;
 use tokio::sync::mpsc::{channel, Receiver};
 use tokio::sync::oneshot;
 use tokio::task::spawn_blocking;
-use tokio::task::JoinHandle;
 
 pub mod cli;
 mod compiler;
 mod expectation;
 mod web;
 
-pub async fn run(cli_args: cli::CliOpt) -> Result<(oneshot::Sender<()>, JoinHandle<()>), Error> {
+pub async fn run(
+    cli_args: cli::CliOpt,
+    shutdown_signal: oneshot::Receiver<()>,
+) -> Result<(), Error> {
     let loading_rt = tokio::runtime::Builder::new()
         .threaded_scheduler()
         .thread_stack_size(8 * 1024 * 1024)
@@ -38,14 +40,8 @@ pub async fn run(cli_args: cli::CliOpt) -> Result<(oneshot::Sender<()>, JoinHand
         tx.send(configuration.clone()).await?;
     }
 
-    let (tx_server, rx_server) = tokio::sync::oneshot::channel();
-
-    let join =
-        tokio::task::spawn(
-            async move { web::web_server(state, cli_args.http_bind, rx_server).await },
-        );
-
-    Ok((tx_server, join))
+    web::web_server(state, cli_args.http_bind, shutdown_signal).await;
+    Ok(())
 }
 
 async fn compiler_executor(mut receiver: Receiver<String>, state: Arc<RwLock<State>>) {

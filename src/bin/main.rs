@@ -11,8 +11,8 @@ fn main() -> Result<(), Error> {
     let mut web_rt = tokio::runtime::Runtime::new()?;
 
     web_rt.block_on(async {
-        let (_, join) = dhall_mock::run(cli_args).await.unwrap();
-        join.await.unwrap();
+        let (_, rx_server) = tokio::sync::oneshot::channel();
+        dhall_mock::run(cli_args, rx_server).await.unwrap();
         Ok(())
     })
 }

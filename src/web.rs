@@ -5,7 +5,6 @@ use std::sync::{Arc, RwLock};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use tokio::sync::oneshot;
-use tokio::task::JoinHandle;
 
 use anyhow::{anyhow, Context, Error};
 
