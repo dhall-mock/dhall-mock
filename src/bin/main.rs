@@ -19,16 +19,16 @@ fn main() -> Result<(), Error> {
     let web_rt = tokio::runtime::Runtime::new()?;
 
     info!("Start dhall mock project 👋");
-    let (tx, rx) = channel(10);
     let state = Arc::new(RwLock::new(State {
         expectations: vec![],
     }));
 
+    let (config_sender, config_receiver) = channel(10);
     // Start dhall configuration loader
-    loading_rt.spawn(compiler_executor(rx, state.clone()));
+    loading_rt.spawn(compiler_executor(config_receiver, state.clone()));
 
-
-    loading_rt.spawn(load_configuration_files(cli_args.configuration_files.into_iter(), tx));
+    // Load configuration files
+    loading_rt.spawn(load_configuration_files(cli_args.configuration_files.into_iter(), config_sender));
 
     // Start web server
     let (web_send_close, web_close_channel) = tokio::sync::oneshot::channel::<()>();
