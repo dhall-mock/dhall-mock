@@ -1,14 +1,14 @@
 extern crate dhall_mock;
 
 use anyhow::{anyhow, Error};
-use log::{debug, info, warn};
+use log::{info, warn};
 use signal_hook::iterator::Signals;
 
 use std::sync::{Arc, RwLock};
 use tokio::sync::mpsc::channel;
 
 use dhall_mock::cli;
-use dhall_mock::{compiler_executor, create_loader_runtime, run_web_server, start_logger, State};
+use dhall_mock::{compiler_executor, create_loader_runtime, run_web_server, start_logger, load_configuration_files, State};
 
 fn main() -> Result<(), Error> {
     start_logger();
@@ -19,7 +19,7 @@ fn main() -> Result<(), Error> {
     let web_rt = tokio::runtime::Runtime::new()?;
 
     info!("Start dhall mock project 👋");
-    let (mut tx, rx) = channel(10);
+    let (tx, rx) = channel(10);
     let state = Arc::new(RwLock::new(State {
         expectations: vec![],
     }));
@@ -27,24 +27,12 @@ fn main() -> Result<(), Error> {
     // Start dhall configuration loader
     loading_rt.spawn(compiler_executor(rx, state.clone()));
 
-    let http_bind = cli_args.http_bind.clone();
 
-    // Send configuration to load from cli
-    loading_rt.spawn(async move {
-        for configuration in cli_args.configuration_files.iter() {
-            debug!("Send configuration file {}", configuration);
-            tx.send(configuration.clone()).await.unwrap_or_else(|err| {
-                warn!(
-                    "Error sending load trigger for {} : {:#}",
-                    configuration, err
-                )
-            });
-        }
-    });
+    loading_rt.spawn(load_configuration_files(cli_args.configuration_files.into_iter(), tx));
 
     // Start web server
     let (web_send_close, web_close_channel) = tokio::sync::oneshot::channel::<()>();
-    web_rt.spawn(run_web_server(http_bind, state.clone(), web_close_channel));
+    web_rt.spawn(run_web_server(cli_args.http_bind, state.clone(), web_close_channel));
 
     // Wait for signal
     let signals = Signals::new(&[signal_hook::SIGINT])?;

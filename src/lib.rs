@@ -6,7 +6,7 @@ use crate::compiler::{compile_configuration, load_file};
 use crate::expectation::model::{display_expectations, Expectation};
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
-use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::task::spawn_blocking;
 
 pub mod cli;
@@ -39,6 +39,14 @@ pub async fn run_web_server(
     close_channel: tokio::sync::oneshot::Receiver<()>,
 ) -> Result<(), Error> {
     web::web_server(state, http_bind, close_channel).await
+}
+
+pub async fn load_configuration_files(configurations: impl Iterator<Item= String>, mut channel: Sender<String>) -> Result<(), Error> {
+    for configuration in configurations {
+        debug!("Send configuration file {}", configuration);
+        channel.send(configuration).await?;
+    }
+    Ok(())
 }
 
 pub async fn compiler_executor(mut receiver: Receiver<String>, state: Arc<RwLock<State>>) {
