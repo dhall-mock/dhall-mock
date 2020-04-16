@@ -5,9 +5,9 @@ use std::sync::{Arc, RwLock};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
 
-use anyhow::{anyhow, Context, Error};
-
+use super::State;
 use crate::expectation::model::{Expectation, HttpMethod, IncomingRequest};
+use anyhow::{anyhow, Context, Error};
 
 impl TryFrom<&Method> for HttpMethod {
     type Error = anyhow::Error;
@@ -53,10 +53,6 @@ impl TryFrom<&Expectation> for Response<Body> {
     }
 }
 
-pub struct State {
-    pub expectations: Vec<Expectation>,
-}
-
 fn not_found_response() -> Result<Response<Body>, Error> {
     Response::builder()
         .status(StatusCode::NOT_FOUND)
@@ -89,7 +85,11 @@ async fn handler<T>(req: Request<T>, state: Arc<RwLock<State>>) -> Result<Respon
         ))
 }
 
-pub async fn web_server(state: Arc<RwLock<State>>, http_bind: String) -> Result<(), Error> {
+pub async fn web_server(
+    state: Arc<RwLock<State>>,
+    http_bind: String,
+    close_channel: tokio::sync::oneshot::Receiver<()>,
+) -> Result<(), Error> {
     let make_svc = make_service_fn(move |_| {
         let state = Arc::clone(&state);
         async {
@@ -107,7 +107,11 @@ pub async fn web_server(state: Arc<RwLock<State>>, http_bind: String) -> Result<
     let addr = http_bind
         .parse()
         .context(format!("{} is not a valid ip config", http_bind))?;
-    let server = Server::bind(&addr).serve(make_svc);
+    let server = Server::bind(&addr)
+        .serve(make_svc)
+        .with_graceful_shutdown(async {
+            close_channel.await.ok();
+        });
 
     info!("Http server started on http://{}", addr);
     server.await.context("Error on web server execution")
