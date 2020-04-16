@@ -41,7 +41,10 @@ pub async fn run_web_server(
     web::web_server(state, http_bind, close_channel).await
 }
 
-pub async fn load_configuration_files(configurations: impl Iterator<Item= String>, mut channel: Sender<String>) -> Result<(), Error> {
+pub async fn load_configuration_files(
+    configurations: impl Iterator<Item = String>,
+    mut channel: Sender<String>,
+) -> Result<(), Error> {
     for configuration in configurations {
         debug!("Send configuration file {}", configuration);
         channel.send(configuration).await?;

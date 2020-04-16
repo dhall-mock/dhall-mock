@@ -8,7 +8,10 @@ use std::sync::{Arc, RwLock};
 use tokio::sync::mpsc::channel;
 
 use dhall_mock::cli;
-use dhall_mock::{compiler_executor, create_loader_runtime, run_web_server, start_logger, load_configuration_files, State};
+use dhall_mock::{
+    compiler_executor, create_loader_runtime, load_configuration_files, run_web_server,
+    start_logger, State,
+};
 
 fn main() -> Result<(), Error> {
     start_logger();
@@ -28,11 +31,18 @@ fn main() -> Result<(), Error> {
     loading_rt.spawn(compiler_executor(config_receiver, state.clone()));
 
     // Load configuration files
-    loading_rt.spawn(load_configuration_files(cli_args.configuration_files.into_iter(), config_sender));
+    loading_rt.spawn(load_configuration_files(
+        cli_args.configuration_files.into_iter(),
+        config_sender,
+    ));
 
     // Start web server
     let (web_send_close, web_close_channel) = tokio::sync::oneshot::channel::<()>();
-    web_rt.spawn(run_web_server(cli_args.http_bind, state.clone(), web_close_channel));
+    web_rt.spawn(run_web_server(
+        cli_args.http_bind,
+        state.clone(),
+        web_close_channel,
+    ));
 
     // Wait for signal
     let signals = Signals::new(&[signal_hook::SIGINT])?;
