@@ -46,8 +46,8 @@ pub async fn run_mock_server(
     let (web, admin) =
         tokio::try_join!(tokio::task::spawn(server), tokio::task::spawn(admin_server))?;
     match (web, admin) {
-        (e @ Err(_), _) => e.context("Web server crashed unexpectedly."),
-        (_, e @ Err(_)) => e.context("Admin server crashed unexpectedly."),
+        (Err(e), _) => Err(anyhow::anyhow!(e)),
+        (_, Err(e)) => Err(anyhow::anyhow!(e)),
         _ => Ok(()),
     }
 }
