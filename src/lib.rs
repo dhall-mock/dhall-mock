@@ -10,7 +10,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::task::spawn_blocking;
 
 pub mod cli;
-mod compiler;
+pub mod compiler;
 mod expectation;
 mod web;
 
