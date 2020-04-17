@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::fmt::{Display, Formatter};
 
@@ -8,7 +8,7 @@ pub struct IncomingRequest {
     pub path: String,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
 pub enum HttpMethod {
     HEAD,
     GET,
@@ -17,13 +17,13 @@ pub enum HttpMethod {
     DELETE,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct HttpRequest {
     pub method: Option<HttpMethod>,
     pub path: Option<String>,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct HttpResponse {
     #[serde(rename = "statusCode")]
     pub status_code: Option<u16>,
@@ -32,7 +32,7 @@ pub struct HttpResponse {
     pub body: Option<String>,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Expectation {
     pub request: HttpRequest,
     pub response: HttpResponse,

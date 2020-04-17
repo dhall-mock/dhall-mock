@@ -8,6 +8,7 @@ use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use super::State;
 use crate::expectation::model::{Expectation, HttpMethod, IncomingRequest};
 use anyhow::{anyhow, Context, Error};
+use serde_json;
 
 impl TryFrom<&Method> for HttpMethod {
     type Error = anyhow::Error;
@@ -115,4 +116,47 @@ pub async fn web_server(
 
     info!("Http server started on http://{}", addr);
     server.await.context("Error on web server execution")
+}
+
+async fn admin_handler<T>(
+    req: Request<T>,
+    state: Arc<RwLock<State>>,
+) -> Result<Response<Body>, Error> {
+    match (req.method(), req.uri().path()) {
+        (&Method::GET, "/expectations") => {
+            let read_state = state
+                .read()
+                .map_err(|e| anyhow!("Error acquiring lock on state : {}", e))?;
+
+            let body = serde_json::to_string(&read_state.expectations)?;
+            Response::builder()
+                .status(StatusCode::OK)
+                .body(Body::from(body))
+                .map_err(|_| anyhow!("Something bad happened."))
+        }
+        _ => not_found_response(),
+    }
+}
+
+pub async fn admin_server(
+    state: Arc<RwLock<State>>,
+    http_bind: String,
+    close_channel: tokio::sync::oneshot::Receiver<()>,
+) -> Result<(), Error> {
+    let make_svc = make_service_fn(move |_| {
+        let state = Arc::clone(&state);
+        async { Ok::<_, Error>(service_fn(move |req| admin_handler(req, state.clone()))) }
+    });
+
+    let addr = http_bind
+        .parse()
+        .context(format!("{} is not a valid ip config", http_bind))?;
+    let server = Server::bind(&addr)
+        .serve(make_svc)
+        .with_graceful_shutdown(async {
+            close_channel.await.ok();
+        });
+
+    info!("Admin server started on http://{}", addr);
+    server.await.context("Error on admin server execution")
 }

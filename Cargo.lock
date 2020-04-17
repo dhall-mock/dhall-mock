@@ -233,6 +233,7 @@ dependencies = [
  "rustls",
  "serde",
  "serde_dhall",
+ "serde_json",
  "signal-hook",
  "structopt",
  "thiserror",
