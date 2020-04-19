@@ -9,7 +9,7 @@ use tokio::sync::mpsc::channel;
 
 use dhall_mock::cli;
 use dhall_mock::{
-    compiler_executor, create_loader_runtime, load_configuration_files, run_web_server,
+    compiler_executor, create_loader_runtime, load_configuration_files, run_web_server, load_configuration,
     start_logger, State,
 };
 
@@ -30,11 +30,19 @@ fn main() -> Result<(), Error> {
     // Start dhall configuration loader
     loading_rt.spawn(compiler_executor(config_receiver, state.clone()));
 
-    // Load configuration files
-    loading_rt.spawn(load_configuration_files(
-        cli_args.configuration_files.into_iter(),
-        config_sender,
-    ));
+    if cli_args.wait_configuration_load {
+        // Load configuration files synchronously
+        info!("Wait for configuration loading");
+        for config in cli_args.configuration_files {
+            load_configuration(config, state.clone())
+        }
+    } else {
+        // Load configuration files asynchronously
+        loading_rt.spawn(load_configuration_files(
+            cli_args.configuration_files.into_iter(),
+            config_sender,
+        ));
+    }
 
     // Start web server
     let (web_send_close, web_close_channel) = tokio::sync::oneshot::channel::<()>();

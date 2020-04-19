@@ -52,33 +52,35 @@ pub async fn load_configuration_files(
     Ok(())
 }
 
+pub fn load_configuration(config: String, state: Arc<RwLock<State>>) {
+    info!("Start loading config {}", config);
+    let now = Instant::now();
+    let load_result = load_file(config.as_str())
+        .and_then(|configuration| compile_configuration(&configuration))
+        .context(format!("Error parsing dhall configuration {}", config));
+    info!("Loaded {} in {} secs", config, now.elapsed().as_secs());
+    match (load_result, state.write()) {
+        (Ok(mut expectations), Ok(mut state)) => {
+            info!(
+                "Loaded expectations : {}",
+                display_expectations(&expectations)
+            );
+            state.expectations.append(expectations.as_mut());
+        }
+        (Err(e), _) => warn!("{:#}", e),
+        (_, Err(e)) => warn!(
+            "Error mutating state for configuration {} , : {:#}",
+            config, e
+        ),
+    }
+}
+
 pub async fn compiler_executor(mut receiver: Receiver<String>, state: Arc<RwLock<State>>) {
     debug!("Dhall compiler task started");
     while let Some(config) = receiver.recv().await {
         debug!("Received config to load from file {}", config);
         let state = state.clone();
-        spawn_blocking(move || {
-            info!("Start loading config {}", config);
-            let now = Instant::now();
-            let load_result = load_file(config.as_str())
-                .and_then(|configuration| compile_configuration(&configuration))
-                .context(format!("Error parsing dhall configuration {}", config));
-            info!("Loaded {} in {} secs", config, now.elapsed().as_secs());
-            match (load_result, state.write()) {
-                (Ok(mut expectations), Ok(mut state)) => {
-                    info!(
-                        "Loaded expectations : {}",
-                        display_expectations(&expectations)
-                    );
-                    state.expectations.append(expectations.as_mut());
-                }
-                (Err(e), _) => warn!("{:#}", e),
-                (_, Err(e)) => warn!(
-                    "Error mutating state for configuration {} , : {:#}",
-                    config, e
-                ),
-            }
-        });
+        spawn_blocking(move || load_configuration(config, state));
     }
     receiver.close();
 }
