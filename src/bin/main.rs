@@ -9,8 +9,8 @@ use tokio::sync::mpsc::channel;
 
 use dhall_mock::cli;
 use dhall_mock::{
-    compiler_executor, create_loader_runtime, load_configuration_files, run_web_server, load_configuration,
-    start_logger, State,
+    compiler_executor, create_loader_runtime, load_configuration, load_configuration_files,
+    run_web_server, start_logger, State,
 };
 
 fn main() -> Result<(), Error> {
