@@ -43,13 +43,9 @@ pub async fn run_mock_server(
     let server = run_web_server(http_bind, state.clone(), close_web_channel);
     let admin_server = run_admin_server(admin_http_bind, state.clone(), close_admin_channel);
 
-    let (web, admin) =
-        tokio::try_join!(tokio::task::spawn(server), tokio::task::spawn(admin_server))?;
-    match (web, admin) {
-        (Err(e), _) => Err(anyhow::anyhow!(e)),
-        (_, Err(e)) => Err(anyhow::anyhow!(e)),
-        _ => Ok(()),
-    }
+    tokio::try_join!(server, admin_server)
+        .map(|_| ())
+        .context("Error on running web servers")
 }
 
 pub async fn run_web_server(
