@@ -1,4 +1,4 @@
-let Mock = ./dhall/Mock/package.dhall
+let Mock = https://raw.githubusercontent.com/dhall-mock/dhall-mock/master/dhall/Mock/package.dhall
 
 let expectations = [
                        { request  = { method  = Some Mock.HttpMethod.GET

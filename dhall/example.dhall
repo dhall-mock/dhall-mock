@@ -2,7 +2,7 @@ let map = https://prelude.dhall-lang.org/List/map
 
 let XML = https://prelude.dhall-lang.org/XML/package.dhall
 
-let Mock = ./dhall/Mock/package.dhall
+let Mock = https://raw.githubusercontent.com/dhall-mock/dhall-mock/master/dhall/Mock/package.dhall
 
 let User : Type =
     { userId        : Text
