@@ -59,7 +59,7 @@ fn main() -> Result<(), Error> {
         }
     });
 
-    let result= web_rt.block_on(run_mock_server(
+    let result = web_rt.block_on(run_mock_server(
         cli_args.http_bind,
         cli_args.admin_http_bind,
         state.clone(),
