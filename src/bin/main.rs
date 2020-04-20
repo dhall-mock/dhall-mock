@@ -42,7 +42,7 @@ fn main() -> Result<(), Error> {
     let (web_send_close, web_close_channel) = oneshot::channel::<()>();
     let (admin_send_close, admin_close_channel) = oneshot::channel::<()>();
 
-    web_rt.spawn(async move {
+    std::thread::spawn(move || {
         // Wait for signal
         let signals = Signals::new(&[signal_hook::SIGINT])?;
         match signals.forever().next() {
