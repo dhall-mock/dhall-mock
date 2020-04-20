@@ -57,6 +57,7 @@ fn main() -> Result<(), Error> {
         cli_args.http_bind,
         cli_args.admin_http_bind,
         state.clone(),
+        loading_rt.clone(),
         web_close_channel,
         admin_close_channel,
     ));

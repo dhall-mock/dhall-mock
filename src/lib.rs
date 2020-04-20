@@ -3,6 +3,7 @@ use std::time::Instant;
 
 use env_logger::Env;
 use log::{info, warn};
+use tokio::runtime::Runtime;
 use tokio::task::block_in_place;
 
 use anyhow::{anyhow, Context, Error};
@@ -38,11 +39,17 @@ pub async fn run_mock_server(
     http_bind: String,
     admin_http_bind: String,
     state: Arc<RwLock<State>>,
+    loader_rt: Arc<Runtime>,
     close_web_channel: tokio::sync::oneshot::Receiver<()>,
     close_admin_channel: tokio::sync::oneshot::Receiver<()>,
 ) -> Result<(), Error> {
     let server = run_web_server(http_bind, state.clone(), close_web_channel);
-    let admin_server = run_admin_server(admin_http_bind, state.clone(), close_admin_channel);
+    let admin_server = run_admin_server(
+        admin_http_bind,
+        state.clone(),
+        loader_rt,
+        close_admin_channel,
+    );
 
     tokio::try_join!(server, admin_server)
         .map(|_| ())
@@ -60,13 +67,14 @@ pub async fn run_web_server(
 pub async fn run_admin_server(
     http_bind: String,
     state: Arc<RwLock<State>>,
+    loader_rt: Arc<Runtime>,
     close_channel: tokio::sync::oneshot::Receiver<()>,
 ) -> Result<(), Error> {
-    web::admin_server(state, http_bind, close_channel).await
+    web::admin_server(state, http_bind, loader_rt, close_channel).await
 }
 
 pub fn load_configuration_files<'a>(
-    target_runtime: Arc<tokio::runtime::Runtime>,
+    target_runtime: Arc<Runtime>,
     state: Arc<RwLock<State>>,
     configurations: impl Iterator<Item = String>,
 ) {
