@@ -1,11 +1,11 @@
 extern crate dhall_mock;
 
+use dhall_mock::expectation::model::{Expectation, HttpMethod, HttpRequest, HttpResponse};
+use dhall_mock::State;
 use std::panic;
 use std::sync::{Arc, RwLock};
 use tokio::runtime;
 use tokio::sync::oneshot;
-use dhall_mock::State;
-use dhall_mock::expectation::model::{Expectation, HttpMethod, HttpRequest, HttpResponse};
 
 use reqwest::blocking::Client;
 
@@ -13,7 +13,6 @@ fn run_test<T>(test: T) -> ()
 where
     T: FnOnce(Arc<RwLock<State>>) -> () + panic::UnwindSafe,
 {
-
     let loader_rt = Arc::new(runtime::Runtime::new().unwrap());
     let mut web_rt = runtime::Runtime::new().unwrap();
     let (web_send_close, web_close_channel) = oneshot::channel::<()>();
@@ -26,7 +25,13 @@ where
         expectations: expectations,
     }));
 
-    let join = setup(&web_rt, loader_rt, state.clone(), web_close_channel, admin_close_channel);
+    let join = setup(
+        &web_rt,
+        loader_rt,
+        state.clone(),
+        web_close_channel,
+        admin_close_channel,
+    );
 
     let result = panic::catch_unwind(|| test(state.clone()));
 
@@ -104,13 +109,13 @@ fn test_admin_api_post_expectations() {
         let expected = Expectation {
             request: HttpRequest {
                 method: Some(HttpMethod::GET),
-                path: Some("/greet/toto".to_string())
+                path: Some("/greet/toto".to_string()),
             },
             response: HttpResponse {
                 status_code: Some(201),
                 status_reason: None,
-                body: Some("Hello, toto ! Ca vient du web".to_string())
-            }
+                body: Some("Hello, toto ! Ca vient du web".to_string()),
+            },
         };
 
         assert!(state.expectations.contains(&expected))
@@ -143,13 +148,13 @@ fn test_admin_fail_compile_configuration() {
         let expected = Expectation {
             request: HttpRequest {
                 method: Some(HttpMethod::GET),
-                path: Some("/greet/toto".to_string())
+                path: Some("/greet/toto".to_string()),
             },
             response: HttpResponse {
                 status_code: Some(201),
                 status_reason: None,
-                body: Some("Hello, toto ! Ca vient du web".to_string())
-            }
+                body: Some("Hello, toto ! Ca vient du web".to_string()),
+            },
         };
 
         assert!(!state.expectations.contains(&expected))

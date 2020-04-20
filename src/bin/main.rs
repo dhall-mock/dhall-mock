@@ -29,7 +29,7 @@ fn main() -> Result<(), Error> {
     load_configuration_files(
         loading_rt.clone(),
         state.clone(),
-        cli_args.configuration_files.into_iter()
+        cli_args.configuration_files.into_iter(),
     );
 
     // Start web server
