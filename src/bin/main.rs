@@ -5,6 +5,7 @@ use log::{info, warn};
 use signal_hook::iterator::Signals;
 
 use std::sync::{Arc, RwLock};
+use std::time::Duration;
 use tokio::sync::mpsc::channel;
 
 use dhall_mock::cli;
@@ -17,7 +18,7 @@ use tokio::sync::oneshot;
 
 fn main() -> Result<(), Error> {
     start_logger();
-    let web_rt = Runtime::new()?;
+    let mut web_rt = Runtime::new()?;
     let loading_rt = create_loader_runtime()?;
 
     let cli_args = cli::load_cli_args();
@@ -40,26 +41,32 @@ fn main() -> Result<(), Error> {
     // Start web server
     let (web_send_close, web_close_channel) = oneshot::channel::<()>();
     let (admin_send_close, admin_close_channel) = oneshot::channel::<()>();
-    web_rt.spawn(run_mock_server(
+
+    std::thread::spawn(move || {
+        // Wait for signal
+        let signals = Signals::new(&[signal_hook::SIGINT])?;
+        match signals.forever().next() {
+            Some(signal_hook::SIGINT) => {
+                web_send_close
+                    .send(())
+                    .unwrap_or_else(|_| warn!("Error graceful shutdown"));
+                admin_send_close
+                    .send(())
+                    .unwrap_or_else(|_| warn!("Error graceful shutdown"));
+                Ok(())
+            }
+            _ => Err(anyhow!("Captured signal that should not be managed")),
+        }
+    });
+
+    let result = web_rt.block_on(run_mock_server(
         cli_args.http_bind,
         cli_args.admin_http_bind,
         state.clone(),
         web_close_channel,
         admin_close_channel,
     ));
-
-    // Wait for signal
-    let signals = Signals::new(&[signal_hook::SIGINT])?;
-    match signals.forever().next() {
-        Some(signal_hook::SIGINT) => {
-            web_send_close
-                .send(())
-                .unwrap_or_else(|_| warn!("Error graceful shutdown"));
-            admin_send_close
-                .send(())
-                .unwrap_or_else(|_| warn!("Error graceful shutdown"));
-            Ok(())
-        }
-        _ => Err(anyhow!("Captured signal that should not be managed")),
-    }
+    web_rt.shutdown_timeout(Duration::from_secs(1));
+    loading_rt.shutdown_timeout(Duration::from_secs(1));
+    result
 }
