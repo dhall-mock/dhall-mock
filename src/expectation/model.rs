@@ -89,12 +89,6 @@ impl Display for Expectation {
     }
 }
 
-pub fn display_expectations(expectations: &Vec<Expectation>) -> String {
-    expectations.iter().fold(String::new(), |acc, expectation| {
-        format!("{}\n{}", acc, expectation)
-    })
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
