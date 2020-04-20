@@ -13,7 +13,7 @@ use crate::expectation::model::Expectation;
 
 pub mod cli;
 pub mod compiler;
-mod expectation;
+pub mod expectation;
 mod web;
 
 pub struct State {
