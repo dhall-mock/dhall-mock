@@ -33,12 +33,39 @@ pub fn start_logger() {
     env_logger::init_from_env(env);
 }
 
+pub async fn run_mock_server(
+    http_bind: String,
+    admin_http_bind: String,
+    state: Arc<RwLock<State>>,
+    close_web_channel: tokio::sync::oneshot::Receiver<()>,
+    close_admin_channel: tokio::sync::oneshot::Receiver<()>,
+) -> Result<(), Error> {
+    let server = run_web_server(http_bind, state.clone(), close_web_channel);
+    let admin_server = run_admin_server(admin_http_bind, state.clone(), close_admin_channel);
+
+    let (web, admin) =
+        tokio::try_join!(tokio::task::spawn(server), tokio::task::spawn(admin_server))?;
+    match (web, admin) {
+        (e @ Err(_), _) => e.context("Web server crashed unexpectedly."),
+        (_, e @ Err(_)) => e.context("Admin server crashed unexpectedly."),
+        _ => Ok(()),
+    }
+}
+
 pub async fn run_web_server(
     http_bind: String,
     state: Arc<RwLock<State>>,
     close_channel: tokio::sync::oneshot::Receiver<()>,
 ) -> Result<(), Error> {
     web::web_server(state, http_bind, close_channel).await
+}
+
+pub async fn run_admin_server(
+    http_bind: String,
+    state: Arc<RwLock<State>>,
+    close_channel: tokio::sync::oneshot::Receiver<()>,
+) -> Result<(), Error> {
+    web::admin_server(state, http_bind, close_channel).await
 }
 
 pub async fn load_configuration_files(

@@ -9,17 +9,18 @@ use tokio::sync::mpsc::channel;
 
 use dhall_mock::cli;
 use dhall_mock::{
-    compiler_executor, create_loader_runtime, load_configuration_files, run_web_server,
+    compiler_executor, create_loader_runtime, load_configuration_files, run_mock_server,
     start_logger, State,
 };
+use tokio::runtime::Runtime;
+use tokio::sync::oneshot;
 
 fn main() -> Result<(), Error> {
     start_logger();
+    let web_rt = Runtime::new()?;
+    let loading_rt = create_loader_runtime()?;
 
     let cli_args = cli::load_cli_args();
-
-    let loading_rt = create_loader_runtime()?;
-    let web_rt = tokio::runtime::Runtime::new()?;
 
     info!("Start dhall mock project 👋");
     let state = Arc::new(RwLock::new(State {
@@ -37,11 +38,14 @@ fn main() -> Result<(), Error> {
     ));
 
     // Start web server
-    let (web_send_close, web_close_channel) = tokio::sync::oneshot::channel::<()>();
-    web_rt.spawn(run_web_server(
+    let (web_send_close, web_close_channel) = oneshot::channel::<()>();
+    let (admin_send_close, admin_close_channel) = oneshot::channel::<()>();
+    web_rt.spawn(run_mock_server(
         cli_args.http_bind,
+        cli_args.admin_http_bind,
         state.clone(),
         web_close_channel,
+        admin_close_channel,
     ));
 
     // Wait for signal
@@ -49,6 +53,9 @@ fn main() -> Result<(), Error> {
     match signals.forever().next() {
         Some(signal_hook::SIGINT) => {
             web_send_close
+                .send(())
+                .unwrap_or_else(|_| warn!("Error graceful shutdown"));
+            admin_send_close
                 .send(())
                 .unwrap_or_else(|_| warn!("Error graceful shutdown"));
             Ok(())
