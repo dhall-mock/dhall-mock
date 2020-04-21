@@ -5,10 +5,14 @@ use std::sync::{Arc, RwLock};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
 
+use super::load_configuration;
 use super::State;
 use crate::expectation::model::{Expectation, HttpMethod, IncomingRequest};
 use anyhow::{anyhow, Context, Error};
+use bytes::buf::BufExt;
 use serde_json;
+use std::io::Read;
+use tokio::runtime::Runtime;
 
 impl TryFrom<&Method> for HttpMethod {
     type Error = anyhow::Error;
@@ -118,9 +122,10 @@ pub async fn web_server(
     server.await.context("Error on web server execution")
 }
 
-async fn admin_handler<T>(
-    req: Request<T>,
+async fn admin_handler(
+    req: Request<hyper::Body>,
     state: Arc<RwLock<State>>,
+    loader_rt: Arc<Runtime>,
 ) -> Result<Response<Body>, Error> {
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/expectations") => {
@@ -134,6 +139,31 @@ async fn admin_handler<T>(
                 .body(Body::from(body))
                 .map_err(|_| anyhow!("Something bad happened."))
         }
+        (&Method::POST, "/expectations") => {
+            let mut read_body = String::new();
+            hyper::body::aggregate(req)
+                .await?
+                .reader()
+                .read_to_string(&mut read_body)?;
+
+            match loader_rt
+                .spawn(load_configuration(
+                    state,
+                    "POST web configuration".to_string(),
+                    read_body,
+                ))
+                .await?
+            {
+                Ok(()) => Response::builder()
+                    .status(StatusCode::CREATED)
+                    .body(Body::empty())
+                    .map_err(|_| anyhow!("Something bad happened.")),
+                Err(e) => Response::builder()
+                    .status(StatusCode::BAD_REQUEST)
+                    .body(Body::from(format!("{:#}", e)))
+                    .map_err(|_| anyhow!("Something bad happened.")),
+            }
+        }
         _ => not_found_response(),
     }
 }
@@ -141,11 +171,17 @@ async fn admin_handler<T>(
 pub async fn admin_server(
     state: Arc<RwLock<State>>,
     http_bind: String,
+    loader_rt: Arc<Runtime>,
     close_channel: tokio::sync::oneshot::Receiver<()>,
 ) -> Result<(), Error> {
     let make_svc = make_service_fn(move |_| {
         let state = Arc::clone(&state);
-        async { Ok::<_, Error>(service_fn(move |req| admin_handler(req, state.clone()))) }
+        let loader_rt = Arc::clone(&loader_rt);
+        async {
+            Ok::<_, Error>(service_fn(move |req| {
+                admin_handler(req, state.clone(), loader_rt.clone())
+            }))
+        }
     });
 
     let addr = http_bind
