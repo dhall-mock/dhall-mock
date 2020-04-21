@@ -79,15 +79,20 @@ pub fn load_configuration_files(
     configurations: impl Iterator<Item = String>,
 ) {
     for configuration in configurations {
-        // TODO manage error
-        let configuration_content = load_file(configuration.as_str()).unwrap();
-        let state = state.clone();
-        target_runtime.spawn(async move {
-            match load_configuration(state, configuration.clone(), configuration_content).await {
-                Ok(()) => info!("Configuration {} loaded", configuration),
-                Err(e) => warn!("Error loading configuration {} : {:#}", configuration, e),
+        match load_file(configuration.as_str()) {
+            Ok(configuration_content) => {
+                let state = state.clone();
+                target_runtime.spawn(async move {
+                    match load_configuration(state, configuration.clone(), configuration_content)
+                        .await
+                    {
+                        Ok(()) => info!("Configuration {} loaded", configuration),
+                        Err(e) => warn!("Error loading configuration {} : {:#}", configuration, e),
+                    }
+                });
             }
-        });
+            Err(e) => warn!("Error loading configuration file : \n{:#}", e),
+        }
     }
 }
 
