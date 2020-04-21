@@ -73,7 +73,7 @@ pub async fn run_admin_server(
     web::admin_server(state, http_bind, loader_rt, close_channel).await
 }
 
-pub fn load_configuration_files<'a>(
+pub fn load_configuration_files(
     target_runtime: Arc<Runtime>,
     state: Arc<RwLock<State>>,
     configurations: impl Iterator<Item = String>,
