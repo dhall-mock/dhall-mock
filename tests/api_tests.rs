@@ -1,37 +1,55 @@
 extern crate dhall_mock;
 
-use dhall_mock::expectation::model::{Expectation, HttpMethod, HttpRequest, HttpResponse};
-use dhall_mock::State;
-use std::panic;
+use dhall_mock::mock::model::{Expectation, HttpMethod, HttpRequest, HttpResponse};
+use dhall_mock::mock::service::{add_configuration, State};
+use dhall_mock::start_servers;
 use std::sync::{Arc, RwLock};
+use std::{fs, panic};
 use tokio::runtime;
 use tokio::sync::oneshot;
 
+use dhall_mock::web::admin::AdminServerContext;
+use dhall_mock::web::mock::MockServerContext;
 use reqwest::blocking::Client;
 
 fn run_test<T>(test: T) -> ()
 where
     T: FnOnce(Arc<RwLock<State>>) -> () + panic::UnwindSafe,
 {
-    let loader_rt = Arc::new(runtime::Runtime::new().unwrap());
+    let mut loader_rt = runtime::Runtime::new().unwrap();
     let mut web_rt = runtime::Runtime::new().unwrap();
     let (web_send_close, web_close_channel) = oneshot::channel::<()>();
     let (admin_send_close, admin_close_channel) = oneshot::channel::<()>();
 
-    let conf = dhall_mock::compiler::load_file("./dhall/static.dhall").unwrap();
-    let expectations = dhall_mock::compiler::compile_configuration(conf.as_ref()).unwrap();
-
-    let state = Arc::new(RwLock::new(dhall_mock::State {
-        expectations: expectations,
+    let state = Arc::new(RwLock::new(State {
+        expectations: vec![],
     }));
 
-    let join = setup(
-        &web_rt,
-        loader_rt,
-        state.clone(),
-        web_close_channel,
-        admin_close_channel,
-    );
+    let conf = fs::read_to_string("./dhall/static.dhall").unwrap();
+    loader_rt
+        .block_on(async {
+            tokio::task::spawn(add_configuration(
+                state.clone(),
+                "Init conf".to_string(),
+                conf,
+            ))
+            .await?
+        })
+        .unwrap();
+
+    let join = web_rt.spawn(start_servers(
+        MockServerContext {
+            http_bind: "0.0.0.0:8088".to_string(),
+            state: state.clone(),
+            close_channel: web_close_channel,
+        },
+        AdminServerContext {
+            http_bind: "0.0.0.0:8089".to_string(),
+            state: state.clone(),
+            close_channel: admin_close_channel,
+            target_runtime: Arc::new(loader_rt),
+        },
+    ));
 
     let result = panic::catch_unwind(|| test(state.clone()));
 
@@ -39,23 +57,6 @@ where
 
     let _ = web_rt.block_on(join);
     assert!(result.is_ok())
-}
-
-fn setup(
-    web_rt: &runtime::Runtime,
-    loader_rt: Arc<runtime::Runtime>,
-    state: Arc<RwLock<State>>,
-    web_close_channel: oneshot::Receiver<()>,
-    admin_close_channel: oneshot::Receiver<()>,
-) -> tokio::task::JoinHandle<Result<(), anyhow::Error>> {
-    web_rt.spawn(dhall_mock::run_mock_server(
-        String::from("0.0.0.0:8088"),
-        String::from("0.0.0.0:8089"),
-        state,
-        loader_rt,
-        web_close_channel,
-        admin_close_channel,
-    ))
 }
 
 fn teardown(web_send_close: oneshot::Sender<()>, admin_send_close: oneshot::Sender<()>) {
