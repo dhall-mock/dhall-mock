@@ -1,10 +1,5 @@
-use crate::expectation::model::Expectation;
+use super::model::Expectation;
 use anyhow::{Context, Error};
-use std::fs;
-
-pub fn load_file(name: &str) -> Result<String, Error> {
-    fs::read_to_string(name).context(format!("Error reading file {} content", name))
-}
 
 pub fn compile_configuration(configuration_content: &str) -> Result<Vec<Expectation>, Error> {
     serde_dhall::from_str(configuration_content)
@@ -15,7 +10,7 @@ pub fn compile_configuration(configuration_content: &str) -> Result<Vec<Expectat
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::expectation::model::{HttpMethod, HttpRequest, HttpResponse};
+    use crate::mock::model::{Expectation, HttpMethod, HttpRequest, HttpResponse};
 
     #[test]
     fn test_compile_configuration() {
