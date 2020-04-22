@@ -9,10 +9,6 @@ use web::mock::{server as mock_server, MockServerContext};
 pub mod mock;
 pub mod web;
 
-pub struct State {
-    pub expectations: Vec<Expectation>,
-}
-
 pub fn create_loader_runtime() -> Result<tokio::runtime::Runtime, Error> {
     tokio::runtime::Builder::new()
         .threaded_scheduler()
