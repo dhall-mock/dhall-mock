@@ -11,10 +11,32 @@ use tokio::sync::oneshot;
 use dhall_mock::web::admin::AdminServerContext;
 use dhall_mock::web::mock::MockServerContext;
 use reqwest::blocking::Client;
+use std::net::TcpListener;
+
+fn get_available_port(bind: &str, excluded: Option<u16>) -> Option<u16> {
+    (30000..40000)
+        .filter(|port| excluded != Some(*port))
+        .find(|port| TcpListener::bind((bind, *port)).is_ok())
+}
+
+fn search_and_lock_available_port(bind: &str) -> Option<(TcpListener, u16)> {
+    (30000..40000)
+        .filter_map(|port| {
+            TcpListener::bind((bind, port))
+                .map(|socket| (socket, port))
+                .ok()
+        })
+        .next()
+}
+
+struct TestContext {
+    mock_bind: String,
+    admin_bind: String,
+}
 
 fn run_test<T>(test: T) -> ()
 where
-    T: FnOnce(Arc<RwLock<State>>) -> () + panic::UnwindSafe,
+    T: FnOnce(TestContext, Arc<RwLock<State>>) -> () + panic::UnwindSafe,
 {
     let mut loader_rt = runtime::Runtime::new().unwrap();
     let mut web_rt = runtime::Runtime::new().unwrap();
@@ -37,21 +59,45 @@ where
         })
         .unwrap();
 
-    let join = web_rt.spawn(start_servers(
-        MockServerContext {
-            http_bind: "0.0.0.0:8088".to_string(),
-            state: state.clone(),
-            close_channel: web_close_channel,
-        },
-        AdminServerContext {
-            http_bind: "0.0.0.0:8089".to_string(),
-            state: state.clone(),
-            close_channel: admin_close_channel,
-            target_runtime: Arc::new(loader_rt),
-        },
-    ));
+    let mock_port = get_available_port("127.0.0.1", None)
+        .expect("No port available to start mock server for test");
+    let admin_port = get_available_port("127.0.0.1", Some(mock_port))
+        .expect("No port available to start admin server for test");
+    let mock_bind = format!("127.0.0.1:{}", mock_port);
+    let admin_bind = format!("127.0.0.1:{}", admin_port);
 
-    let result = panic::catch_unwind(|| test(state.clone()));
+    let host_bind = "127.0.0.1";
+
+    let join = {
+        let (_mock_lock, mock_port) = search_and_lock_available_port(host_bind)
+            .expect("No port available to start mock server for test");
+        let (_admin_lock, admin_port) = search_and_lock_available_port(host_bind)
+            .expect("No port available to start mock server for test");
+        println!("Start servers on {}, {}", mock_bind, admin_bind);
+        web_rt.spawn(start_servers(
+            MockServerContext {
+                http_bind: format!("{}:{}", host_bind, mock_port),
+                state: state.clone(),
+                close_channel: web_close_channel,
+            },
+            AdminServerContext {
+                http_bind: format!("{}:{}", host_bind, admin_port),
+                state: state.clone(),
+                close_channel: admin_close_channel,
+                target_runtime: Arc::new(loader_rt),
+            },
+        ))
+    };
+
+    let result = panic::catch_unwind(|| {
+        test(
+            TestContext {
+                mock_bind,
+                admin_bind,
+            },
+            state.clone(),
+        )
+    });
 
     teardown(web_send_close, admin_send_close);
 
@@ -66,8 +112,8 @@ fn teardown(web_send_close: oneshot::Sender<()>, admin_send_close: oneshot::Send
 
 #[test]
 fn test_api() {
-    run_test(|_| {
-        let api = format!("http://{}:{}/greet/pwet", "localhost", 8088);
+    run_test(|test_context, _| {
+        let api = format!("http://{}/greet/pwet", test_context.mock_bind);
         let req = reqwest::blocking::get(&api).unwrap();
 
         assert_eq!(reqwest::StatusCode::CREATED, req.status());
@@ -76,8 +122,8 @@ fn test_api() {
 
 #[test]
 fn test_admin_api() {
-    run_test(|_| {
-        let api = format!("http://{}:{}/expectations", "localhost", 8089);
+    run_test(|test_context, _| {
+        let api = format!("http://{}/expectations", test_context.admin_bind);
         let req = reqwest::blocking::get(&api).unwrap();
 
         assert_eq!(reqwest::StatusCode::OK, req.status());
@@ -86,8 +132,8 @@ fn test_admin_api() {
 
 #[test]
 fn test_admin_api_post_expectations() {
-    run_test(|state| {
-        let api = format!("http://{}:{}/expectations", "localhost", 8089);
+    run_test(|test_context, state| {
+        let api = format!("http://{}/expectations", test_context.admin_bind);
         let req = Client::builder().build().unwrap().post(&api).body(r#"
         let Mock = https://raw.githubusercontent.com/dhall-mock/dhall-mock/master/dhall/Mock/package.dhall
         let expectations = [
@@ -125,8 +171,8 @@ fn test_admin_api_post_expectations() {
 
 #[test]
 fn test_admin_fail_compile_configuration() {
-    run_test(|state| {
-        let api = format!("http://{}:{}/expectations", "localhost", 8089);
+    run_test(|test_context, state| {
+        let api = format!("http://{}/expectations", test_context.admin_bind);
         let req = Client::builder().build().unwrap().post(&api).body(r#"
         let Mock = https://raw.githubusercontent.com/dhall-mock/dhall-mock/master/dhall/Mock/package.dhall
         let expectations = [
