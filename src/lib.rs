@@ -2,6 +2,7 @@ use env_logger::Env;
 
 use anyhow::{Context, Error};
 
+use crate::mock::model::Expectation;
 use web::admin::{server as admin_server, AdminServerContext};
 use web::mock::{server as mock_server, MockServerContext};
 
