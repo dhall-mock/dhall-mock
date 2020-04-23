@@ -1,7 +1,6 @@
 let map = https://prelude.dhall-lang.org/List/map
 
-let XML = https://prelude.dhall-lang.org/XML/package.dhall
-
+let JSON = https://prelude.dhall-lang.org/JSON/package.dhall
 let Mock = https://raw.githubusercontent.com/dhall-mock/dhall-mock/master/dhall/Mock/package.dhall
 
 let User : Type =
@@ -28,24 +27,24 @@ let users = [ { userId        = "7e38a4e7-5bd8-4011-9391-98ffdca58c06"
               }
             ]
 
-let mkUserBody = \(u : User) ->
-    XML.element { attributes = [ { mapKey = "userId"       , mapValue = u.userId }
-                               , { mapKey = "username"     , mapValue = u.username }
-                               , { mapKey = "createdDate"  , mapValue = u.createdDate }
-                               , { mapKey = "lastLoginDate", mapValue = u.lastLoginDate }
-                               ]
-                , content = [] : List XML.Type
-                , name = "user"
-                }
+let mkJsonUserBody = \(u : User) ->
+    JSON.object [ { mapKey = "userId"       , mapValue = JSON.string u.userId }
+                , { mapKey = "username"     , mapValue = JSON.string u.username }
+                , { mapKey = "createdDate"  , mapValue = JSON.string u.createdDate }
+                , { mapKey = "lastLoginDate", mapValue = JSON.string u.lastLoginDate }
+                ]
 
 let mkUserExpectation = \(user: User) ->
-    { request  = { method  = Some Mock.HttpMethod.GET
-                 , path    = Some "/users/${user.userId}"
-                 }
-    , response = { statusCode   = Some +200
-                 , statusReason = None Text
-                 , body         = Some (XML.render (mkUserBody user))
-                 }
-    }
+        { request = 
+             Mock.HttpRequest::{ method  = Some Mock.HttpMethod.GET
+                               , path    = Some "/users/${user.userId}"
+                               , headers = [ Mock.contentTypeJSON ]
+                               }
+        , response = 
+             Mock.HttpResponse::{ statusCode = Mock.statusOK
+                                , body       = Some (JSON.render (mkJsonUserBody user))
+                                , headers    = [ Mock.contentTypeJSON ]
+                                }
+        }
 
 in map User Mock.Expectation mkUserExpectation users

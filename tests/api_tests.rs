@@ -3,6 +3,7 @@ extern crate dhall_mock;
 use dhall_mock::mock::model::{Expectation, HttpMethod, HttpRequest, HttpResponse};
 use dhall_mock::mock::service::{add_configuration, State};
 use dhall_mock::start_servers;
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::{fs, panic};
 use tokio::runtime;
@@ -88,20 +89,27 @@ fn test_admin_api() {
 fn test_admin_api_post_expectations() {
     run_test(|state| {
         let api = format!("http://{}:{}/expectations", "localhost", 8089);
-        let req = Client::builder().build().unwrap().post(&api).body(r#"
-        let Mock = https://raw.githubusercontent.com/dhall-mock/dhall-mock/master/dhall/Mock/package.dhall
+        let req = Client::builder()
+            .build()
+            .unwrap()
+            .post(&api)
+            .body(
+                r#"
+        let Mock = ./dhall/Mock/package.dhall
         let expectations = [
-                               { request  = { method  = Some Mock.HttpMethod.GET
-                                           , path    = Some "/greet/toto"
-                                           }
-                               , response = { statusCode   = Some +201
-                                               , statusReason = None Text
-                                               , body         = Some "Hello, toto ! Ca vient du web"
-                                               }
+                               { request  = Mock.HttpRequest::{ method  = Some Mock.HttpMethod.GET
+                                                              , path    = Some "/greet/toto"
+                                                              }
+                               , response = Mock.HttpResponse::{ statusCode   = Some 201
+                                                               , body         = Some "Hello, toto ! Ca vient du web"
+                                                               }
                               }
                            ]
         in expectations
-        "#).send().unwrap();
+        "#,
+            )
+            .send()
+            .unwrap();
 
         assert_eq!(reqwest::StatusCode::CREATED, req.status());
 
@@ -111,11 +119,15 @@ fn test_admin_api_post_expectations() {
             request: HttpRequest {
                 method: Some(HttpMethod::GET),
                 path: Some("/greet/toto".to_string()),
+                body: None,
+                params: vec![],
+                headers: HashMap::new(),
             },
             response: HttpResponse {
                 status_code: Some(201),
                 status_reason: None,
                 body: Some("Hello, toto ! Ca vient du web".to_string()),
+                headers: HashMap::new(),
             },
         };
 
@@ -127,8 +139,13 @@ fn test_admin_api_post_expectations() {
 fn test_admin_fail_compile_configuration() {
     run_test(|state| {
         let api = format!("http://{}:{}/expectations", "localhost", 8089);
-        let req = Client::builder().build().unwrap().post(&api).body(r#"
-        let Mock = https://raw.githubusercontent.com/dhall-mock/dhall-mock/master/dhall/Mock/package.dhall
+        let req = Client::builder()
+            .build()
+            .unwrap()
+            .post(&api)
+            .body(
+                r#"
+        let Mock = ./dhall/Mock/package.dhall
         let expectations = [
                                { request  = { method  = Some Mock.HttpMethod.GET
                                            , path    = Some "/greet/toto"
@@ -140,7 +157,10 @@ fn test_admin_fail_compile_configuration() {
                               }
                            ]
         in expectation
-        "#).send().unwrap();
+        "#,
+            )
+            .send()
+            .unwrap();
 
         assert_eq!(reqwest::StatusCode::BAD_REQUEST, req.status());
 
@@ -150,11 +170,15 @@ fn test_admin_fail_compile_configuration() {
             request: HttpRequest {
                 method: Some(HttpMethod::GET),
                 path: Some("/greet/toto".to_string()),
+                body: None,
+                params: vec![],
+                headers: HashMap::new(),
             },
             response: HttpResponse {
                 status_code: Some(201),
                 status_reason: None,
                 body: Some("Hello, toto ! Ca vient du web".to_string()),
+                headers: HashMap::new(),
             },
         };
 

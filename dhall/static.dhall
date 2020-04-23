@@ -1,21 +1,19 @@
-let Mock = https://raw.githubusercontent.com/dhall-mock/dhall-mock/master/dhall/Mock/package.dhall
+let Mock = ./dhall/Mock/package.dhall
 
 let expectations = [
-                       { request  = { method  = Some Mock.HttpMethod.GET
-                                   , path    = Some "/greet/pwet"
-                                   }
-                       , response = { statusCode   = Some +201
-                                       , statusReason = None Text
-                                       , body         = Some "Hello, pwet ! Comment que ca biche ?"
-                                       }
+                       { request  = Mock.HttpRequest::{ method  = Some Mock.HttpMethod.GET
+                                                      , path    = Some "/greet/pwet"
+                                                      }
+                       , response = Mock.HttpResponse::{ statusCode   = Mock.statusCreated
+                                                       , body         = Some "Hello, pwet ! Comment que ca biche ?"
+                                                       }
                       }
-                      ,{ request  = { method  = Some Mock.HttpMethod.GET
-                                   , path    = Some "/greet/wololo"
-                                   }
-                      , response = { statusCode   = Some +200
-                                   , statusReason = None Text
-                                   , body         = Some "Hello, Wololo !"
-                                   }
+                      ,{ request  = Mock.HttpRequest::{ method  = Some Mock.HttpMethod.GET
+                                                      , path    = Some "/greet/wololo"
+                                                      }
+                      , response = Mock.HttpResponse::{ statusCode   = Mock.statusOK
+                                                      , body         = Some "Hello, Wololo !"
+                                                      }
                       }
                    ]
 
