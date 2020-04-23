@@ -12,12 +12,21 @@ use dhall_mock::web::admin::AdminServerContext;
 use dhall_mock::web::mock::MockServerContext;
 use reqwest::blocking::Client;
 use std::net::TcpListener;
-use std::time::Duration;
 
 fn get_available_port(bind: &str, excluded: Option<u16>) -> Option<u16> {
     (30000..40000)
         .filter(|port| excluded != Some(*port))
         .find(|port| TcpListener::bind((bind, *port)).is_ok())
+}
+
+fn search_and_lock_available_port(bind: &str) -> Option<(TcpListener, u16)> {
+    (30000..40000)
+        .filter_map(|port| {
+            TcpListener::bind((bind, port))
+                .map(|socket| (socket, port))
+                .ok()
+        })
+        .next()
 }
 
 struct TestContext {
@@ -57,21 +66,28 @@ where
     let mock_bind = format!("127.0.0.1:{}", mock_port);
     let admin_bind = format!("127.0.0.1:{}", admin_port);
 
-    println!("Start servers on {}, {}", mock_bind, admin_bind);
-    let join = web_rt.spawn(start_servers(
-        MockServerContext {
-            http_bind: mock_bind.clone(),
-            state: state.clone(),
-            close_channel: web_close_channel,
-        },
-        AdminServerContext {
-            http_bind: admin_bind.clone(),
-            state: state.clone(),
-            close_channel: admin_close_channel,
-            target_runtime: Arc::new(loader_rt),
-        },
-    ));
-    std::thread::sleep(Duration::from_secs(2));
+    let host_bind = "127.0.0.1";
+
+    let join = {
+        let (_mock_lock, mock_port) = search_and_lock_available_port(host_bind)
+            .expect("No port available to start mock server for test");
+        let (_admin_lock, admin_port) = search_and_lock_available_port(host_bind)
+            .expect("No port available to start mock server for test");
+        println!("Start servers on {}, {}", mock_bind, admin_bind);
+        web_rt.spawn(start_servers(
+            MockServerContext {
+                http_bind: format!("{}:{}", host_bind, mock_port),
+                state: state.clone(),
+                close_channel: web_close_channel,
+            },
+            AdminServerContext {
+                http_bind: format!("{}:{}", host_bind, admin_port),
+                state: state.clone(),
+                close_channel: admin_close_channel,
+                target_runtime: Arc::new(loader_rt),
+            },
+        ))
+    };
 
     let result = panic::catch_unwind(|| {
         test(
