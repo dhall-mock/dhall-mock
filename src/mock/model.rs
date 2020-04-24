@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::cmp::PartialEq;
+use std::collections::HashMap;
+
+use crate::mock::serde as serde_mock;
 
 #[derive(Debug)]
 pub struct IncomingRequest {
@@ -9,17 +13,36 @@ pub struct IncomingRequest {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
 pub enum HttpMethod {
-    HEAD,
-    GET,
-    PUT,
-    POST,
+    CONNECT,
     DELETE,
+    GET,
+    HEAD,
+    OPTIONS,
+    PATCH,
+    POST,
+    PUT,
+    TRACE,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+pub enum RequestBody {
+    JSON {
+        #[serde(with = "serde_mock::json_string")]
+        json: Value,
+    },
+    TEXT {
+        text: String,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct HttpRequest {
     pub method: Option<HttpMethod>,
     pub path: Option<String>,
+    pub body: Option<RequestBody>,
+    pub params: Vec<(String, String)>,
+    #[serde(with = "serde_mock::dhall_listtomap")]
+    pub headers: HashMap<String, String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
@@ -29,6 +52,8 @@ pub struct HttpResponse {
     #[serde(rename = "statusReason")]
     pub status_reason: Option<String>,
     pub body: Option<String>,
+    #[serde(with = "serde_mock::dhall_listtomap")]
+    pub headers: HashMap<String, String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
@@ -68,6 +93,7 @@ impl Expectation {
 mod test {
     use super::*;
     use crate::mock::model::{HttpRequest, HttpResponse};
+    use serde_json::json;
 
     #[test]
     fn test_deserialize_http_method() {
@@ -127,31 +153,116 @@ mod test {
     }
 
     #[test]
+    fn test_deserialize_request_textual_body() {
+        assert_eq!(
+            RequestBody::TEXT {
+                text: String::from("carpe diem.")
+            },
+            serde_dhall::from_str(
+                r###"
+            let Mock = ./dhall/Mock/package.dhall
+            in Mock.Body.TEXT { text = "carpe diem." }
+        "###
+            )
+            .parse()
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_deserialize_request_json_body() {
+        assert_eq!(
+            RequestBody::JSON {
+                json: json!({ "maxime": "carpe diem." })
+            },
+            serde_dhall::from_str(
+                r###"
+                    let Mock = ./dhall/Mock/package.dhall
+                    in Mock.Body.JSON { json = "{ \"maxime\": \"carpe diem.\" }" }
+                "###
+            )
+            .parse()
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_deserialize_http_params() {
+        let data = r###"
+            let Mock = ./dhall/Mock/package.dhall
+            in Mock.HttpRequest::{ params = [ { key = "foo", value = "bar"}]
+                                 }
+        "###;
+
+        assert_eq!(
+            HttpRequest {
+                method: None,
+                path: None,
+                body: None,
+                headers: HashMap::new(),
+                params: vec![(String::from("foo"), String::from("bar"))],
+            },
+            serde_dhall::from_str(data).parse().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_deserialize_http_headers() {
+        let data = r###"
+            let Mock = ./dhall/Mock/package.dhall
+            in Mock.HttpRequest::{ headers = [ Mock.contentTypeJSON ]
+                                 }
+        "###;
+
+        let mut headers = HashMap::new();
+        headers.insert(
+            String::from("Content-Type"),
+            String::from("application/json"),
+        );
+
+        assert_eq!(
+            HttpRequest {
+                method: None,
+                path: None,
+                body: None,
+                params: vec![],
+                headers: headers
+            },
+            serde_dhall::from_str(data).parse().unwrap()
+        );
+    }
+
+    #[test]
     fn test_deserialize_http_request() {
         let data = r###"
             let Mock = ./dhall/Mock/package.dhall
-            in { method = Some Mock.HttpMethod.GET
-                , path = Some "/path"
-            }
+            in Mock.HttpRequest::{ method = Some Mock.HttpMethod.GET
+                                 , path = Some "/path"
+                                 }
         "###;
         assert_eq!(
             HttpRequest {
                 method: Some(HttpMethod::GET),
-                path: Some("/path".to_string())
+                path: Some("/path".to_string()),
+                body: None,
+                params: vec![],
+                headers: HashMap::new()
             },
             serde_dhall::from_str(data).parse().unwrap()
         );
 
         let data = r###"
             let Mock = ./dhall/Mock/package.dhall
-            in { method = None Mock.HttpMethod
-                , path = None Text
-            }
+            in Mock.HttpRequest::{ method = None Mock.HttpMethod
+                                 }
         "###;
         assert_eq!(
             HttpRequest {
                 method: None,
-                path: None
+                path: None,
+                body: None,
+                params: vec![],
+                headers: HashMap::new()
             },
             serde_dhall::from_str(data).parse().unwrap()
         );
@@ -162,24 +273,24 @@ mod test {
         let data = r###"
             let Mock = ./dhall/Mock/package.dhall
             in { method = Mock.HttpMethod.GET
-                , path = "/path"
-            }
+                                 , path = "/path"
+                                 }
         "###;
         assert!(serde_dhall::from_str(data).parse::<HttpRequest>().is_err());
 
         let data = r###"
             let Mock = ./dhall/Mock/package.dhall
             in { method = Mock.HttpMethod.GET
-                , path = Some "/path"
-            }
+               , path = Some "/path"
+               }
         "###;
         assert!(serde_dhall::from_str(data).parse::<HttpRequest>().is_err());
 
         let data = r###"
             let Mock = ./dhall/Mock/package.dhall
             in { method = Some Mock.HttpMethod.GET
-                , path = "/path"
-            }
+               , path = "/path"
+               }
         "###;
         assert!(serde_dhall::from_str(data).parse::<HttpRequest>().is_err());
     }
@@ -188,31 +299,31 @@ mod test {
     fn test_deserialize_http_response() {
         let data = r###"
             let Mock = ./dhall/Mock/package.dhall
-            in { statusCode = Some 200
-                , statusReason = None Text
-                , body = Some "Hello, world !"
-            }
+            in Mock.HttpResponse::{ statusCode = Some 200
+                                  , body = Some "Hello, world !"
+                                  }
         "###;
         assert_eq!(
             HttpResponse {
                 status_code: Some(200),
                 status_reason: None,
-                body: Some("Hello, world !".to_string())
+                body: Some("Hello, world !".to_string()),
+                headers: HashMap::new(),
             },
             serde_dhall::from_str(data).parse().unwrap()
         );
 
         let data = r###"
             let Mock = ./dhall/Mock/package.dhall
-            in { statusCode = Some 200
-                , statusReason = Some "Everything went fine"
-                , body = None Text
-            }"###;
+            in Mock.HttpResponse::{ statusCode = Some 200
+                                  , statusReason = Some "Everything went fine"
+                                  }"###;
         assert_eq!(
             HttpResponse {
                 status_code: Some(200),
                 status_reason: Some("Everything went fine".to_string()),
-                body: None
+                body: None,
+                headers: HashMap::new(),
             },
             serde_dhall::from_str(data).parse().unwrap()
         );
@@ -222,28 +333,27 @@ mod test {
     fn test_deserialize_http_response_fail() {
         let data = r###"
             let Mock = ./dhall/Mock/package.dhall
-            in { statusCode = 200
-                , statusReason = None Text
-                , body = Some "Hello, world !"
-            }
+            in Mock.HttpResponse::{ statusCode = 200
+                                  , body = Some "Hello, world !"
+                                  }
         "###;
         assert!(serde_dhall::from_str(data).parse::<HttpResponse>().is_err());
 
         let data = r###"
             let Mock = ./dhall/Mock/package.dhall
-            in { statusCode = Some 200
-                , statusReason = "Random text"
-                , body = Some "Hello, world !"
-            }
+            in Mock.HttpResponse::{ statusCode = Some 200
+                                  , statusReason = "Random text"
+                                  , body = Some "Hello, world !"
+                                  }
         "###;
         assert!(serde_dhall::from_str(data).parse::<HttpResponse>().is_err());
 
         let data = r###"
             let Mock = ./dhall/Mock/package.dhall
-            in { statusCode = Some 200
-                , statusReason = None Text
-                , body = "Hello, world !"
-            }
+            in Mock.HttpResponse::{ statusCode = Some 200
+                                  , statusReason = None Text
+                                  , body = "Hello, world !"
+                                  }
         "###;
         assert!(serde_dhall::from_str(data).parse::<HttpResponse>().is_err());
     }
@@ -252,24 +362,27 @@ mod test {
     fn test_deserialize_expectation() {
         let data = r###"
             let Mock = ./dhall/Mock/package.dhall
-            in { request  = { method  = Some Mock.HttpMethod.GET
-                             , path    = Some "/greet/pwet"
-                             }
-            , response = { statusCode   = Some +200
-                         , statusReason = None Text
-                         , body         = Some "Hello, pwet !"
-                         }
+            in { request  = Mock.HttpRequest::{ method  = Some Mock.HttpMethod.GET
+                                              , path    = Some "/greet/pwet"
+                                              }
+            , response = Mock.HttpResponse::{ statusCode   = Mock.statusOK
+                                            , body         = Some "Hello, pwet !"
+                                            }
             }
         "###;
         let expected = Expectation {
             request: HttpRequest {
                 method: Some(HttpMethod::GET),
                 path: Some("/greet/pwet".to_string()),
+                body: None,
+                params: vec![],
+                headers: HashMap::new(),
             },
             response: HttpResponse {
                 status_code: Some(200),
                 status_reason: None,
                 body: Some("Hello, pwet !".to_string()),
+                headers: HashMap::new(),
             },
         };
         assert_eq!(expected, serde_dhall::from_str(data).parse().unwrap());
@@ -291,12 +404,16 @@ mod test {
         let req = HttpRequest {
             method: Some(HttpMethod::GET),
             path: None,
+            body: None,
+            params: vec![],
+            headers: HashMap::new(),
         };
 
         let resp = HttpResponse {
             status_code: Some(200),
             status_reason: None,
             body: None,
+            headers: HashMap::new(),
         };
 
         let exp = Expectation {
@@ -320,12 +437,16 @@ mod test {
         let req = HttpRequest {
             method: Some(HttpMethod::POST),
             path: None,
+            body: None,
+            params: vec![],
+            headers: HashMap::new(),
         };
 
         let resp = HttpResponse {
             status_code: Some(200),
             status_reason: None,
             body: None,
+            headers: HashMap::new(),
         };
 
         let exp = Expectation {
@@ -349,12 +470,16 @@ mod test {
         let req = HttpRequest {
             method: None,
             path: Some(String::from("/foo/bar")),
+            body: None,
+            params: vec![],
+            headers: HashMap::new(),
         };
 
         let resp = HttpResponse {
             status_code: Some(200),
             status_reason: None,
             body: None,
+            headers: HashMap::new(),
         };
 
         let exp = Expectation {
@@ -378,12 +503,16 @@ mod test {
         let req = HttpRequest {
             method: None,
             path: Some(String::from("/foo/bar")),
+            body: None,
+            params: vec![],
+            headers: HashMap::new(),
         };
 
         let resp = HttpResponse {
             status_code: Some(200),
             status_reason: None,
             body: None,
+            headers: HashMap::new(),
         };
 
         let exp = Expectation {

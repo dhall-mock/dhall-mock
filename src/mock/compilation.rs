@@ -11,21 +11,20 @@ pub fn compile_configuration(configuration_content: &str) -> Result<Vec<Expectat
 mod test {
     use super::*;
     use crate::mock::model::{Expectation, HttpMethod, HttpRequest, HttpResponse};
+    use std::collections::HashMap;
 
     #[test]
     fn test_compile_configuration() {
         let data = r###"
             let Mock = ./dhall/Mock/package.dhall
 
-            let expectations = [{ request  = { method  = Some Mock.HttpMethod.GET
-                             , path    = Some "/greet/pwet"
-                             }
-                , response = { statusCode   = Some +200
-                             , statusReason = None Text
-                             , body         = Some "Hello, pwet !"
-                             }
-                }
-            ]
+            let expectations = [ { request  = Mock.HttpRequest::{ method  = Some Mock.HttpMethod.GET
+                                                                , path    = Some "/greet/pwet"
+                                                                }
+                               , response = Mock.HttpResponse::{ statusCode   = Mock.statusOK
+                                                               , body         = Some "Hello, pwet !"
+                                                               }
+                               }]
 
             in expectations
         "###;
@@ -34,11 +33,15 @@ mod test {
             request: HttpRequest {
                 method: Some(HttpMethod::GET),
                 path: Some("/greet/pwet".to_string()),
+                body: None,
+                params: vec![],
+                headers: HashMap::new(),
             },
             response: HttpResponse {
                 status_code: Some(200),
                 status_reason: None,
                 body: Some("Hello, pwet !".to_string()),
+                headers: HashMap::new(),
             },
         }];
 
