@@ -1,7 +1,6 @@
 extern crate dhall_mock;
 
-use get_port;
-use get_port::PortRange;
+use get_port::{get_port_in_range, PortRange};
 use lazy_static::lazy_static;
 use reqwest::blocking::Client;
 use std::collections::HashMap;
@@ -36,18 +35,16 @@ where
     }));
     let lock = PORT_USED.lock().unwrap();
 
-    let web_port = get_port::get_port_in_range(get_port::PortRange {
+    let web_port = get_port::get_port_in_range(PortRange {
         min: 8000,
         max: 9000,
     })
     .unwrap();
-    let admin_port = get_port::get_port_in_range(get_port::PortRange {
+    let admin_port = get_port::get_port_in_range(PortRange {
         min: 9000,
         max: 10000,
     })
     .unwrap();
-    println!("web_port : {}", web_port);
-    println!("admin_port : {}", admin_port);
 
     let conf = fs::read_to_string("./dhall/static.dhall").unwrap();
     loader_rt
