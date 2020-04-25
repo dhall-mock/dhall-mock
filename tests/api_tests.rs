@@ -1,8 +1,11 @@
 extern crate dhall_mock;
 
 use get_port;
+use get_port::PortRange;
+use lazy_static::lazy_static;
 use reqwest::blocking::Client;
 use std::collections::HashMap;
+use std::sync::Mutex;
 use std::sync::{Arc, RwLock};
 use std::{fs, panic};
 use tokio::runtime;
@@ -13,6 +16,11 @@ use dhall_mock::mock::service::{add_configuration, State};
 use dhall_mock::start_servers;
 use dhall_mock::web::admin::AdminServerContext;
 use dhall_mock::web::mock::MockServerContext;
+use std::net::{Ipv4Addr, TcpListener};
+
+lazy_static! {
+    static ref PORT_USED: Mutex<Vec<u16>> = Mutex::new(vec![]);
+}
 
 fn run_test<T>(test: T) -> ()
 where
@@ -26,6 +34,7 @@ where
     let state = Arc::new(RwLock::new(State {
         expectations: vec![],
     }));
+    let lock = PORT_USED.lock().unwrap();
 
     let web_port = get_port::get_port_in_range(get_port::PortRange {
         min: 8000,
@@ -65,6 +74,7 @@ where
             target_runtime: Arc::new(loader_rt),
         },
     ));
+    drop(lock);
 
     let result = panic::catch_unwind(|| test(state.clone(), web_port, admin_port));
 

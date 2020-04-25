@@ -229,6 +229,7 @@ dependencies = [
  "env_logger",
  "get-port",
  "hyper",
+ "lazy_static",
  "log",
  "reqwest",
  "rustls",
