@@ -5,10 +5,11 @@ use std::collections::HashMap;
 
 use crate::mock::serde as serde_mock;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IncomingRequest {
     pub method: HttpMethod,
     pub path: String,
+    pub body: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
@@ -78,7 +79,15 @@ impl Expectation {
             .map(|p| p == &req.path)
             .unwrap_or(true);
 
-        match_method && match_path
+        let body_match = match &self.request.body {
+            Some(RequestBody::JSON { json }) => serde_json::from_str(req.body.as_ref())
+                .map(|body: Value| *json == body)
+                .unwrap_or(false),
+            Some(RequestBody::TEXT { text }) => *text == req.body,
+            _ => true,
+        };
+
+        match_method && match_path && body_match
     }
 
     pub fn look_for_expectation<'a, 'b>(
@@ -424,6 +433,7 @@ mod test {
         let income = IncomingRequest {
             method: HttpMethod::GET,
             path: String::from("/foo/bar"),
+            body: String::from(""),
         };
 
         let v = vec![exp.clone()];
@@ -457,6 +467,7 @@ mod test {
         let income = IncomingRequest {
             method: HttpMethod::GET,
             path: String::from("/foo/bar"),
+            body: String::from(""),
         };
 
         let v = vec![exp.clone()];
@@ -490,6 +501,7 @@ mod test {
         let income = IncomingRequest {
             method: HttpMethod::GET,
             path: String::from("/foo/bar"),
+            body: String::from(""),
         };
 
         let v = vec![exp.clone()];
@@ -523,9 +535,154 @@ mod test {
         let income = IncomingRequest {
             method: HttpMethod::GET,
             path: String::from("/users"),
+            body: String::from(""),
         };
 
         let v = vec![exp];
+        let tested = Expectation::look_for_expectation(&v, &income);
+
+        assert_eq!(None, tested);
+    }
+
+    #[test]
+    fn test_accept_matching_json_body() {
+        let content = json!({ "maxime": "carpe diem." });
+
+        let req = HttpRequest {
+            method: None,
+            path: None,
+            body: Some(RequestBody::JSON { json: content }),
+            params: vec![],
+            headers: HashMap::new(),
+        };
+
+        let resp = HttpResponse {
+            status_code: Some(200),
+            status_reason: None,
+            body: None,
+            headers: HashMap::new(),
+        };
+
+        let exp = Expectation {
+            request: req,
+            response: resp,
+        };
+
+        let income = IncomingRequest {
+            method: HttpMethod::GET,
+            path: String::from("/foo/bar"),
+            body: String::from("{\n \"maxime\": \"carpe diem.\" \n}"),
+        };
+
+        let v = vec![exp.clone()];
+        let tested = Expectation::look_for_expectation(&v, &income);
+
+        assert_eq!(Some(&exp), tested);
+    }
+
+    #[test]
+    fn test_refuse_wrong_json_body() {
+        let content = json!({ "maxime": "carpe diem." });
+
+        let req = HttpRequest {
+            method: None,
+            path: None,
+            body: Some(RequestBody::JSON { json: content }),
+            params: vec![],
+            headers: HashMap::new(),
+        };
+
+        let resp = HttpResponse {
+            status_code: Some(200),
+            status_reason: None,
+            body: None,
+            headers: HashMap::new(),
+        };
+
+        let exp = Expectation {
+            request: req,
+            response: resp,
+        };
+
+        let income = IncomingRequest {
+            method: HttpMethod::GET,
+            path: String::from("/foo/bar"),
+            body: String::from("{\n \"maxime\": \"this is not carpe diem.\" \n}"),
+        };
+
+        let v = vec![exp.clone()];
+        let tested = Expectation::look_for_expectation(&v, &income);
+
+        assert_eq!(None, tested);
+    }
+
+    #[test]
+    fn test_accept_matching_text_body() {
+        let req = HttpRequest {
+            method: None,
+            path: None,
+            body: Some(RequestBody::TEXT {
+                text: String::from("carpe diem."),
+            }),
+            params: vec![],
+            headers: HashMap::new(),
+        };
+
+        let resp = HttpResponse {
+            status_code: Some(200),
+            status_reason: None,
+            body: None,
+            headers: HashMap::new(),
+        };
+
+        let exp = Expectation {
+            request: req,
+            response: resp,
+        };
+
+        let income = IncomingRequest {
+            method: HttpMethod::GET,
+            path: String::from("/foo/bar"),
+            body: String::from("carpe diem."),
+        };
+
+        let v = vec![exp.clone()];
+        let tested = Expectation::look_for_expectation(&v, &income);
+
+        assert_eq!(Some(&exp), tested);
+    }
+
+    #[test]
+    fn test_refuse_wrong_text_body() {
+        let req = HttpRequest {
+            method: None,
+            path: None,
+            body: Some(RequestBody::TEXT {
+                text: String::from("carpe diem."),
+            }),
+            params: vec![],
+            headers: HashMap::new(),
+        };
+
+        let resp = HttpResponse {
+            status_code: Some(200),
+            status_reason: None,
+            body: None,
+            headers: HashMap::new(),
+        };
+
+        let exp = Expectation {
+            request: req,
+            response: resp,
+        };
+
+        let income = IncomingRequest {
+            method: HttpMethod::GET,
+            path: String::from("/foo/bar"),
+            body: String::from("this is not carpe diem."),
+        };
+
+        let v = vec![exp.clone()];
         let tested = Expectation::look_for_expectation(&v, &income);
 
         assert_eq!(None, tested);

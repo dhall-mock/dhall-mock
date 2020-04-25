@@ -53,36 +53,34 @@ pub(crate) async fn server(context: MockServerContext) -> Result<(), Error> {
     server.await.context("Error on web server execution")
 }
 
-async fn handler<T>(req: Request<T>, state: SharedState) -> Result<Response<Body>, Error> {
-    match search_for_mock(&req, state).await? {
+async fn handler(req: Request<Body>, state: SharedState) -> Result<Response<Body>, Error> {
+    let (parts, body) = req.into_parts();
+    let content = hyper::body::to_bytes(body).await?;
+
+    let incoming_request = IncomingRequest {
+        method: HttpMethod::try_from(parts.method)?,
+        path: parts.uri.path().to_string(),
+        body: String::from_utf8(content.to_vec())?, //TODO read header to use the good string encoding
+    };
+
+    match search_for_mock(incoming_request, state).await? {
         Some(expectation) => Response::try_from(expectation),
         None => not_found_response(),
     }
 }
 
-impl TryFrom<&Method> for HttpMethod {
+impl TryFrom<Method> for HttpMethod {
     type Error = anyhow::Error;
 
-    fn try_from(value: &Method) -> Result<Self, Self::Error> {
+    fn try_from(value: Method) -> Result<Self, Self::Error> {
         match value {
-            &Method::GET => Ok(HttpMethod::GET),
-            &Method::POST => Ok(HttpMethod::POST),
-            &Method::PUT => Ok(HttpMethod::PUT),
-            &Method::DELETE => Ok(HttpMethod::DELETE),
-            &Method::HEAD => Ok(HttpMethod::HEAD),
+            Method::GET => Ok(HttpMethod::GET),
+            Method::POST => Ok(HttpMethod::POST),
+            Method::PUT => Ok(HttpMethod::PUT),
+            Method::DELETE => Ok(HttpMethod::DELETE),
+            Method::HEAD => Ok(HttpMethod::HEAD),
             method => Err(anyhow!("{} isn't managed as HttpMethod", method)),
         }
-    }
-}
-
-impl<T> TryFrom<&Request<T>> for IncomingRequest {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &Request<T>) -> Result<Self, Self::Error> {
-        Ok(IncomingRequest {
-            method: HttpMethod::try_from(value.method())?,
-            path: value.uri().path().to_string(),
-        })
     }
 }
 
