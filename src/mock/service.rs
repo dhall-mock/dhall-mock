@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
@@ -36,17 +35,13 @@ pub async fn add_configuration(
 }
 
 // Todo add Unit tests
-pub async fn search_for_mock<T>(
-    request: T,
+pub async fn search_for_mock(
+    request: IncomingRequest,
     state: SharedState,
-) -> Result<Option<Expectation>, Error>
-where
-    T: TryInto<IncomingRequest, Error = Error> + Sized,
-{
+) -> Result<Option<Expectation>, Error> {
     let state = state
         .read()
         .map_err(|_| anyhow!("Error acquiring read on shared state"))?;
-    request.try_into().map(|incoming_request| {
-        Expectation::look_for_expectation(&state.expectations, &incoming_request).cloned()
-    })
+
+    Ok(Expectation::look_for_expectation(&state.expectations, &request).cloned())
 }
