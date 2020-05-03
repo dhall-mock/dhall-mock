@@ -57,10 +57,21 @@ async fn handler(req: Request<Body>, state: SharedState) -> Result<Response<Body
     let (parts, body) = req.into_parts();
     let content = hyper::body::to_bytes(body).await?;
 
+    let map = parts
+        .headers
+        .iter()
+        .filter_map(|(k, v)| {
+            v.to_str()
+                .ok()
+                .map(|vv| (String::from(k.as_str()), String::from(vv)))
+        })
+        .collect();
+
     let incoming_request = IncomingRequest {
         method: HttpMethod::try_from(parts.method)?,
         path: parts.uri.path().to_string(),
         body: String::from_utf8(content.to_vec())?, //TODO read header to use the good string encoding
+        headers: map,
     };
 
     match search_for_mock(incoming_request, state).await? {
