@@ -1,21 +1,28 @@
 extern crate dhall_mock;
 
-use dhall_mock::mock::model::{Expectation, HttpMethod, HttpRequest, HttpResponse};
-use dhall_mock::mock::service::{add_configuration, State};
-use dhall_mock::start_servers;
+use get_port::{get_port_in_range, PortRange};
+use lazy_static::lazy_static;
+use reqwest::blocking::Client;
 use std::collections::HashMap;
+use std::sync::Mutex;
 use std::sync::{Arc, RwLock};
 use std::{fs, panic};
 use tokio::runtime;
 use tokio::sync::oneshot;
 
+use dhall_mock::mock::model::{Expectation, HttpMethod, HttpRequest, HttpResponse};
+use dhall_mock::mock::service::{add_configuration, State};
+use dhall_mock::start_servers;
 use dhall_mock::web::admin::AdminServerContext;
 use dhall_mock::web::mock::MockServerContext;
-use reqwest::blocking::Client;
+
+lazy_static! {
+    static ref PORT_USED: Mutex<Vec<u16>> = Mutex::new(vec![]);
+}
 
 fn run_test<T>(test: T) -> ()
 where
-    T: FnOnce(Arc<RwLock<State>>) -> () + panic::UnwindSafe,
+    T: FnOnce(Arc<RwLock<State>>, u16, u16) -> () + panic::UnwindSafe,
 {
     let mut loader_rt = runtime::Runtime::new().unwrap();
     let mut web_rt = runtime::Runtime::new().unwrap();
@@ -25,6 +32,18 @@ where
     let state = Arc::new(RwLock::new(State {
         expectations: vec![],
     }));
+    let lock = PORT_USED.lock().unwrap();
+
+    let web_port = get_port_in_range(PortRange {
+        min: 8000,
+        max: 9000,
+    })
+    .unwrap();
+    let admin_port = get_port_in_range(PortRange {
+        min: 9000,
+        max: 10000,
+    })
+    .unwrap();
 
     let conf = fs::read_to_string("./dhall/static.dhall").unwrap();
     loader_rt
@@ -40,19 +59,20 @@ where
 
     let join = web_rt.spawn(start_servers(
         MockServerContext {
-            http_bind: "0.0.0.0:8088".to_string(),
+            http_bind: format!("0.0.0.0:{}", web_port),
             state: state.clone(),
             close_channel: web_close_channel,
         },
         AdminServerContext {
-            http_bind: "0.0.0.0:8089".to_string(),
+            http_bind: format!("0.0.0.0:{}", admin_port),
             state: state.clone(),
             close_channel: admin_close_channel,
             target_runtime: Arc::new(loader_rt),
         },
     ));
+    drop(lock);
 
-    let result = panic::catch_unwind(|| test(state.clone()));
+    let result = panic::catch_unwind(|| test(state.clone(), web_port, admin_port));
 
     teardown(web_send_close, admin_send_close);
 
@@ -67,8 +87,8 @@ fn teardown(web_send_close: oneshot::Sender<()>, admin_send_close: oneshot::Send
 
 #[test]
 fn test_api() {
-    run_test(|_| {
-        let api = format!("http://{}:{}/greet/pwet", "localhost", 8088);
+    run_test(|_, web_port, _| {
+        let api = format!("http://{}:{}/greet/pwet", "localhost", web_port);
         let req = reqwest::blocking::get(&api).unwrap();
 
         assert_eq!(reqwest::StatusCode::CREATED, req.status());
@@ -77,8 +97,8 @@ fn test_api() {
 
 #[test]
 fn test_admin_api() {
-    run_test(|_| {
-        let api = format!("http://{}:{}/expectations", "localhost", 8089);
+    run_test(|_, _, admin_port| {
+        let api = format!("http://{}:{}/expectations", "localhost", admin_port);
         let req = reqwest::blocking::get(&api).unwrap();
 
         assert_eq!(reqwest::StatusCode::OK, req.status());
@@ -87,8 +107,8 @@ fn test_admin_api() {
 
 #[test]
 fn test_admin_api_post_expectations() {
-    run_test(|state| {
-        let api = format!("http://{}:{}/expectations", "localhost", 8089);
+    run_test(|state, _, admin_port| {
+        let api = format!("http://{}:{}/expectations", "localhost", admin_port);
         let req = Client::builder()
             .build()
             .unwrap()
@@ -137,8 +157,8 @@ fn test_admin_api_post_expectations() {
 
 #[test]
 fn test_admin_fail_compile_configuration() {
-    run_test(|state| {
-        let api = format!("http://{}:{}/expectations", "localhost", 8089);
+    run_test(|state, _, admin_port| {
+        let api = format!("http://{}:{}/expectations", "localhost", admin_port);
         let req = Client::builder()
             .build()
             .unwrap()
