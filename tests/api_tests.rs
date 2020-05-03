@@ -15,7 +15,6 @@ use dhall_mock::mock::service::{add_configuration, State};
 use dhall_mock::start_servers;
 use dhall_mock::web::admin::AdminServerContext;
 use dhall_mock::web::mock::MockServerContext;
-use std::net::{Ipv4Addr, TcpListener};
 
 lazy_static! {
     static ref PORT_USED: Mutex<Vec<u16>> = Mutex::new(vec![]);
@@ -35,12 +34,12 @@ where
     }));
     let lock = PORT_USED.lock().unwrap();
 
-    let web_port = get_port::get_port_in_range(PortRange {
+    let web_port = get_port_in_range(PortRange {
         min: 8000,
         max: 9000,
     })
     .unwrap();
-    let admin_port = get_port::get_port_in_range(PortRange {
+    let admin_port = get_port_in_range(PortRange {
         min: 9000,
         max: 10000,
     })
