@@ -30,7 +30,7 @@ struct CliOpt {
 }
 
 fn main() -> Result<(), Error> {
-    start_logger();
+    start_logger()?;
     let mut web_rt = Runtime::new()?;
     let loading_rt = Arc::new(create_loader_runtime()?);
 

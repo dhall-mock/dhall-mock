@@ -2,8 +2,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::cmp::PartialEq;
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 use crate::mock::serde as serde_mock;
+
+pub type QueryParams = HashMap<String, HashSet<String>>;
 
 #[derive(Debug, Clone)]
 pub struct IncomingRequest {
@@ -11,6 +14,7 @@ pub struct IncomingRequest {
     pub path: String,
     pub body: String,
     pub headers: HashMap<String, String>,
+    pub params: QueryParams,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
@@ -99,7 +103,18 @@ impl Expectation {
             }
         }
 
-        match_method && match_path && body_match && header_match
+        let mut params_match = true;
+        for (k, v) in self.request.params.iter() {
+            match req.params.get(k) {
+                Some(set) if set.contains(v) => continue,
+                _ => {
+                    params_match = false;
+                    break;
+                }
+            }
+        }
+
+        match_method && match_path && body_match && header_match && params_match
     }
 
     pub fn look_for_expectation<'a, 'b>(
@@ -446,6 +461,7 @@ mod test {
             method: HttpMethod::GET,
             path: String::from("/foo/bar"),
             body: String::from(""),
+            params: HashMap::new(),
             headers: HashMap::new(),
         };
 
@@ -481,6 +497,7 @@ mod test {
             method: HttpMethod::GET,
             path: String::from("/foo/bar"),
             body: String::from(""),
+            params: HashMap::new(),
             headers: HashMap::new(),
         };
 
@@ -516,6 +533,7 @@ mod test {
             method: HttpMethod::GET,
             path: String::from("/foo/bar"),
             body: String::from(""),
+            params: HashMap::new(),
             headers: HashMap::new(),
         };
 
@@ -551,6 +569,7 @@ mod test {
             method: HttpMethod::GET,
             path: String::from("/users"),
             body: String::from(""),
+            params: HashMap::new(),
             headers: HashMap::new(),
         };
 
@@ -588,6 +607,7 @@ mod test {
             method: HttpMethod::GET,
             path: String::from("/foo/bar"),
             body: String::from("{\n \"maxime\": \"carpe diem.\" \n}"),
+            params: HashMap::new(),
             headers: HashMap::new(),
         };
 
@@ -625,6 +645,7 @@ mod test {
             method: HttpMethod::GET,
             path: String::from("/foo/bar"),
             body: String::from("{\n \"maxime\": \"this is not carpe diem.\" \n}"),
+            params: HashMap::new(),
             headers: HashMap::new(),
         };
 
@@ -662,6 +683,7 @@ mod test {
             method: HttpMethod::GET,
             path: String::from("/foo/bar"),
             body: String::from("carpe diem."),
+            params: HashMap::new(),
             headers: HashMap::new(),
         };
 
@@ -699,6 +721,7 @@ mod test {
             method: HttpMethod::GET,
             path: String::from("/foo/bar"),
             body: String::from("this is not carpe diem."),
+            params: HashMap::new(),
             headers: HashMap::new(),
         };
 
@@ -747,6 +770,7 @@ mod test {
             method: HttpMethod::GET,
             path: String::from("/foo/bar"),
             body: String::from("carpe diem."),
+            params: HashMap::new(),
             headers: incoming_headers,
         };
 
@@ -795,7 +819,109 @@ mod test {
             method: HttpMethod::GET,
             path: String::from("/foo/bar"),
             body: String::from("carpe diem."),
+            params: HashMap::new(),
             headers: incoming_headers,
+        };
+
+        let v = vec![exp.clone()];
+        let tested = Expectation::look_for_expectation(&v, &income);
+
+        assert_eq!(None, tested);
+    }
+
+    #[test]
+    fn test_accept_matching_params() {
+        let req = HttpRequest {
+            method: None,
+            path: None,
+            body: None,
+            params: vec![
+                (String::from("baz"), String::from("foo")),
+                (String::from("baz"), String::from("bar")),
+            ],
+            headers: HashMap::new(),
+        };
+
+        let resp = HttpResponse {
+            status_code: Some(200),
+            status_reason: None,
+            body: None,
+            headers: HashMap::new(),
+        };
+
+        let exp = Expectation {
+            request: req,
+            response: resp,
+        };
+
+        let mut params = HashMap::new();
+        params.insert(
+            String::from("baz"),
+            [String::from("foo"), String::from("bar")]
+                .iter()
+                .cloned()
+                .collect(),
+        );
+        params.insert(
+            String::from("dontcare"),
+            [String::from("42")].iter().cloned().collect(),
+        );
+
+        let income = IncomingRequest {
+            method: HttpMethod::GET,
+            path: String::from("/foo/bar"),
+            body: String::from("carpe diem."),
+            params: params,
+            headers: HashMap::new(),
+        };
+
+        let v = vec![exp.clone()];
+        let tested = Expectation::look_for_expectation(&v, &income);
+
+        assert_eq!(Some(&exp), tested);
+    }
+
+    #[test]
+    fn test_refuse_wrong_params() {
+        let req = HttpRequest {
+            method: None,
+            path: None,
+            body: None,
+            params: vec![
+                (String::from("baz"), String::from("foo")),
+                (String::from("baz"), String::from("bar")),
+            ],
+            headers: HashMap::new(),
+        };
+
+        let resp = HttpResponse {
+            status_code: Some(200),
+            status_reason: None,
+            body: None,
+            headers: HashMap::new(),
+        };
+
+        let exp = Expectation {
+            request: req,
+            response: resp,
+        };
+
+        let mut params = HashMap::new();
+        params.insert(
+            String::from("baz"),
+            [String::from("foo")].iter().cloned().collect(),
+        );
+        params.insert(
+            String::from("dontcare"),
+            [String::from("42")].iter().cloned().collect(),
+        );
+
+        let income = IncomingRequest {
+            method: HttpMethod::GET,
+            path: String::from("/foo/bar"),
+            body: String::from("carpe diem."),
+            params: params,
+            headers: HashMap::new(),
         };
 
         let v = vec![exp.clone()];
