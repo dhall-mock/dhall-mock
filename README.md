@@ -182,7 +182,7 @@ date: Wed, 06 May 2020 20:10:58 GMT
 
 ## Configuration
 
-### Query
+### Request
 
 Http request received are compared to configurations to search for eligible ones.  
 Currently, the first configuration (by inserting order) to match all of a configuration criteria is used.  
