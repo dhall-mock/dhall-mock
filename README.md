@@ -7,18 +7,19 @@ This project aims to provide a modern HTTP mock server for your daily project us
 
 ### Goal
 
-Mocking http server can be painful. The installation and the configuration of the servers and their responses could be handy and force to use templates generations or external providers.
+Mocking http server can be painful. 
+The installation and the configuration of servers and their responses could be handy and could lead you to use templates generations for some complex cases.
 
-Dhall-mock project aim to be quickly installable by providing a standalone binary and extensive by using an external functional language to describe the custom responses you need.
+Dhall-mock project aim to be **quickly installable** as a standalone binary and **extensive** by using an external language to describe the mock configurations.
 
 ### Why dhall
 
 We choose to base our configuration on [Dhall lang](https://github.com/dhall-lang/dhall-lang) for multiple reasons but here are the most important ones :
 
- - Complete **functional language** - it could be as easy as defining static response as create a set of functions that will generate complex responses and customisation based on inputs.
- - **Typed language** - you can compile and verify your configuration without running dhall-mock server. As soon as your configuration match the types we are providing it can be integrated.
- - **No side effects** - you use a real programming language with libraries, living ecosystem and could imagine complex configuration pipelines and in the same time coul use any configuration even provided by third party since the langage donesn't provide any way to do side effect on the machine.
- - **We wanted to** - Most importantly, we wanted to use dhall because we like this language and wanted to use it :smile: 
+ - Complete **functional language** - Using a complete language empower you, you could as easily define static responses as create a set of functions that will generate complex responses.
+ - **Typed language** - you can compile and verify your configuration without running dhall-mock server. As soon as your configuration compile and expose configuration with the good typing it can be integrated.
+ - **No side effects** - Use a real programming language with libraries, living ecosystem, could define complex configuration pipelines and be safe to integrate any configuration file.
+ - **We wanted to** - Most importantly, we wanted to use dhall because we like this language and wanted to use it :wink: 
 
 ## Usage
 
@@ -35,14 +36,14 @@ FLAGS:
     -V, --version    Prints version information
 
 OPTIONS:
-    -a, --admin-http-bind <admin-http-bind>     [default: 0.0.0.0:8089]
+    -a, --admin-http-bind <admin-http-bind>    http binding for admin [default: 0.0.0.0:8089]
     -h, --http-bind <http-bind>                http binding for server [default: 0.0.0.0:8088]
 
 ARGS:
     <configuration-files>...    Dhall configuration files to parse
 ```
 
-#### Use a static configuration
+#### Example : Use a static configuration
 
 Create a static configuration file `static.dhall` :
 ```dhall
@@ -53,7 +54,7 @@ let expectations = [
                                                       , path    = Some "/greet/pwet"
                                                       }
                        , response = Mock.HttpResponse::{ statusCode   = Mock.statusCreated
-                                                       , body         = Some "Hello, pwet ! Comment que ca biche ?"
+                                                       , body         = Some "Hello, pwet !"
                                                        }
                       }
                       ,{ request  = Mock.HttpRequest::{ method  = Some Mock.HttpMethod.GET
@@ -82,7 +83,7 @@ let expectations =
           }
         , response = Mock.HttpResponse::{
           , statusCode = Mock.statusCreated
-          , body = Some "Hello, pwet ! Comment que ca biche ?"
+          , body = Some "Hello, pwet !"
           }
         }
       , { request = Mock.HttpRequest::{
@@ -99,7 +100,7 @@ let expectations =
 in  expectations
 ```
 
-Start the server using this configuration :
+Start the server using this configuration 
 ```bash
 > dhall-mock static.dhall
 [2020-05-06T19:52:10Z INFO  main] Start dhall mock project 👋
@@ -110,10 +111,10 @@ Start the server using this configuration :
 [2020-05-06T19:52:10Z INFO  main] Configuration static.dhall loaded
 ```
 
-Try it out ! 
+Try it out ! :rocket: 
 ```bash
 > curl http://localhost:8088/greet/pwet
-Hello, pwet ! Comment que ca biche ?
+Hello, pwet !
 > curl http://localhost:8088/greet/wololo
 Hello, Wololo !
 ```
@@ -183,10 +184,10 @@ date: Wed, 06 May 2020 20:10:58 GMT
 
 ### Query
 
-Http request received by the http servers are matched against configuration.  
+Http request received are compared to configurations to search for eligible ones.  
 Currently, the first configuration (by inserting order) to match all of a configuration criteria is used.  
 
-You can add filter on: 
+You can add request criteria (`HttpRequest`) on: 
  - Path
  - Http method (`GET`, `POST`, `DELETE`, `PUT`, `HEAD`, `OPTION`)
  - Http header
@@ -197,13 +198,16 @@ All filters are optional and if a none is provided it's that the configuration a
 
 ### Response
 
-Http response coul be configured with the following :
+Http response (`HttpResponse`) could be configured with:
  - Status code (default `200`)
- - Http header
- - Body
- - Status reason
+ - Http header (default `empty`)
+ - Body  (default `empty`)
+ - Status reason  (default `empty`)
 
-### Dhall typesTBD
+### Dhall types
+
+TBD - A listing of all dhall configuration types.  
+In the mean time you can read the exposed configuration [here](dhall/Mock/package.dhall)
 
 ### Configuration sample
 
