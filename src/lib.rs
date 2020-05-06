@@ -1,6 +1,6 @@
 use env_logger::Env;
 
-use anyhow::{Context, Error};
+use anyhow::{anyhow, Context, Error};
 
 use web::admin::{server as admin_server, AdminServerContext};
 use web::mock::{server as mock_server, MockServerContext};
@@ -18,9 +18,11 @@ pub fn create_loader_runtime() -> Result<tokio::runtime::Runtime, Error> {
         .context("Error creating loader tokio runtime")
 }
 
-pub fn start_logger() {
+pub fn start_logger() -> Result<(), Error> {
     let env = Env::new().filter_or("RUST_LOG", "INFO");
-    env_logger::init_from_env(env);
+    env_logger::try_init_from_env(env)
+        .map_err(|e| anyhow!(e))
+        .context("Error creating logger.")
 }
 
 pub async fn start_servers(

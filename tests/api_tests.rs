@@ -24,6 +24,7 @@ fn run_test<T>(test: T) -> ()
 where
     T: FnOnce(Arc<RwLock<State>>, u16, u16) -> () + panic::UnwindSafe,
 {
+    let _ignore = dhall_mock::start_logger();
     let mut loader_rt = runtime::Runtime::new().unwrap();
     let mut web_rt = runtime::Runtime::new().unwrap();
     let (web_send_close, web_close_channel) = oneshot::channel::<()>();

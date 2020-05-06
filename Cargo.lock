@@ -241,6 +241,7 @@ dependencies = [
  "structopt",
  "thiserror",
  "tokio",
+ "url",
 ]
 
 [[package]]

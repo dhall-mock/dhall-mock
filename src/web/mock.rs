@@ -6,9 +6,12 @@ use hyper::{Body, Method, Request, Response, Server};
 use log::{debug, info};
 use tokio::sync::oneshot::Receiver;
 
-use crate::mock::model::{Expectation, HttpMethod, IncomingRequest};
+use crate::mock::model::{Expectation, HttpMethod, IncomingRequest, QueryParams};
 use crate::mock::service::search_for_mock;
 use crate::mock::service::SharedState;
+
+use std::collections::HashMap;
+use std::collections::HashSet;
 
 use super::not_found_response;
 
@@ -67,11 +70,23 @@ async fn handler(req: Request<Body>, state: SharedState) -> Result<Response<Body
         })
         .collect();
 
+    let params = url::form_urlencoded::parse(&parts.uri.to_string().as_bytes())
+        .into_owned()
+        .fold(HashMap::new(), |mut acc: QueryParams, (k, v)| {
+            if let Some(set) = acc.get_mut(&k) {
+                set.insert(v);
+            } else {
+                acc.insert(k, HashSet::new());
+            }
+            acc
+        });
+
     let incoming_request = IncomingRequest {
         method: HttpMethod::try_from(parts.method)?,
         path: parts.uri.path().to_string(),
         body: String::from_utf8(content.to_vec())?, //TODO read header to use the good string encoding
         headers: map,
+        params: params,
     };
 
     match search_for_mock(incoming_request, state).await? {
