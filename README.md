@@ -211,9 +211,9 @@ In the mean time you can read the exposed configuration [here](dhall/Mock/packag
 
 ### Configuration sample
 
-A static configuration that create two responses based on `GET` method for `/greet/pwet` and `greet/wololo` : [configuration](dhall/static.dhall)
+A configuration that create responses for `GET` method on `/greet/pwet` and `/greet/wololo` : [configuration](dhall/static.dhall)
 
-Configuration that create responses based on a list of users and for each create a `GET ["ContentType": "application/json"] /users/{id}` route with Json body for each one : [configuration](dhall/example.dhall)
+Configuration that create responses based on a list of users and for each create a `GET ["ContentType": "application/json"] /users/{id}` route with associated json body : [configuration](dhall/example.dhall)
 
 ## Install
 
