@@ -16,7 +16,7 @@ Dhall-mock project aim to be quickly installable by providing a standalone binar
 We choose to base our configuration on [Dhall lang](https://github.com/dhall-lang/dhall-lang) for multiple reasons but here are the most important ones :
 
  - Complete **functional language** - it could be as easy as defining static response as create a set of functions that will generate complex responses and customisation based on inputs.
- - **Typed language** - you can compile and verify your compilation without running dhall-mock server. As soon as your configuration match the types we are providing it can be integrated.
+ - **Typed language** - you can compile and verify your configuration without running dhall-mock server. As soon as your configuration match the types we are providing it can be integrated.
  - **No side effects** - you use a real programming language with libraries, living ecosystem and could imagine complex configuration pipelines and in the same time coul use any configuration even provided by third party since the langage donesn't provide any way to do side effect on the machine.
  - **We wanted to** - Most importantly, we wanted to use dhall because we like this language and wanted to use it :smile: 
 
@@ -179,17 +179,49 @@ content-length: 0
 date: Wed, 06 May 2020 20:10:58 GMT
 ```
 
+## Configuration
+
+### Query
+
+Http request received by the http servers are matched against configuration.  
+Currently, the first configuration (by inserting order) to match all of a configuration criteria is used.  
+
+You can add filter on: 
+ - Path
+ - Http method (`GET`, `POST`, `DELETE`, `PUT`, `HEAD`, `OPTION`)
+ - Http header
+ - Query param
+ - Body (Json or Text), body filter is matching the totality of the body, no partial matching for the moment
+
+All filters are optional and if a none is provided it's that the configuration accept any request for this filter
+
+### Response
+
+Http response coul be configured with the following :
+ - Status code (default `200`)
+ - Http header
+ - Body
+ - Status reason
+
+### Dhall typesTBD
+
+### Configuration sample
+
+A static configuration that create two responses based on `GET` method for `/greet/pwet` and `greet/wololo` : [configuration](dhall/static.dhall)
+
+Configuration that create responses based on a list of users and for each create a `GET ["ContentType": "application/json"] /users/{id}` route with Json body for each one : [configuration](dhall/example.dhall)
+
 ## Install
 
 **From release** :  
 Download your distribution binary in [release page](https://github.com/dhall-mock/dhall-mock/releases/latest), add it to you path and your are good to go :thumbsup: 
 
-**Build from source** :
+**Build from sources** :
 ```bash
 > git clone git@github.com:dhall-mock/dhall-mock.git
 > cd dhall-mock
 > cargo build --release
-> ./target/release/main -- help
+> ./target/release/main --help
 ```
 
 ## Contributing
