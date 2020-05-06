@@ -16,7 +16,7 @@ Dhall-mock project aim to be **quickly installable** as a standalone binary and 
 
 We choose to base our configuration on [Dhall lang](https://github.com/dhall-lang/dhall-lang) for multiple reasons but here are the most important ones :
 
- - Complete **functional language** - Using a complete language empower you, you could as easily define static responses as create a set of functions that will generate complex responses.
+ - Complete **functional language** - Using a complete language empowers you, you could as easily define static responses as create a set of functions that will generate complex responses.
  - **Typed language** - you can compile and verify your configuration without running dhall-mock server. As soon as your configuration compile and expose configuration with the good typing it can be integrated.
  - **No side effects** - Use a real programming language with libraries, living ecosystem, could define complex configuration pipelines and be safe to integrate any configuration file.
  - **We wanted to** - Most importantly, we wanted to use dhall because we like this language and wanted to use it :wink: 
@@ -121,7 +121,7 @@ Hello, Wololo !
 
 ### Admin server
 
-Admin server allow you to know which configurations are available on the server and create new configurations.
+Admin server allows you to know which configurations are available on the server and create new configurations.
 
 #### `GET /expectations` 
 
@@ -194,7 +194,7 @@ You can add request criteria (`HttpRequest`) on:
  - Query param
  - Body (Json or Text), body filter is matching the totality of the body, no partial matching for the moment
 
-All filters are optional and if a none is provided it's that the configuration accept any request for this filter
+All criteria are optional if a none is provided the configuration accept any request for this specific criteria.
 
 ### Response
 
