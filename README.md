@@ -1,4 +1,4 @@
-# dhall-mock
+# Dhall mock server
 ![build](https://github.com/dhall-mock/dhall-mock/workflows/build/badge.svg?branch=master)
 
 ## Project
