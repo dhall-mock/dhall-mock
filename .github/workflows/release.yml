@@ -1,0 +1,87 @@
+on:
+  push:
+    tags:
+      - 'v*'
+
+name: Release on tag
+
+jobs:
+  build:
+    name: Build release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-gnu, x86_64-unknown-linux-musl]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@master
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Test for ${{ matrix.target }}
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: test
+          args: --target ${{ matrix.target }} --features vendored
+      - name: Build ${{ matrix.target }} release binary
+        uses: actions-rs/cargo@v1
+        env:
+          PKG_CONFIG_ALLOW_CROSS: 1
+        with:
+          use-cross: true
+          command: build
+          args: --target ${{ matrix.target }} --release --features vendored
+      - name: Store ${{ matrix.target }} release binary
+        uses: actions/upload-artifact@v1
+        with:
+          name: dhall-mock-server-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/main
+  release:
+    name: Create release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build for x86_64-unknown-linux-gnu
+        uses: actions/download-artifact@v1
+        with:
+          name: dhall-mock-server-x86_64-unknown-linux-gnu
+      - name: Download build for x86_64-unknown-linux-musl
+        uses: actions/download-artifact@v1
+        with:
+          name: dhall-mock-server-x86_64-unknown-linux-musl
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            *Ref* : ${{ github.ref }}
+
+            Changes in this Release :
+          draft: true
+          prerelease: false
+      - name: Upload Linux gnu binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dhall-mock-server-x86_64-unknown-linux-musl/main
+          asset_name: dhall-mock-server-x86_64-linux-gnu
+          asset_content_type: application/octet-stream
+      - name: Upload Linux musl binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dhall-mock-server-x86_64-unknown-linux-musl/main
+          asset_name: dhall-mock-server-x86_64-linux-musl
+          asset_content_type: application/octet-stream
