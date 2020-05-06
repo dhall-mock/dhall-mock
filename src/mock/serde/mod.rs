@@ -21,25 +21,3 @@ pub mod json_string {
         serde_json::from_str(&j).map_err(de::Error::custom)
     }
 }
-
-pub mod dhall_listtomap {
-    use serde::de::{Deserialize, Deserializer};
-    use serde::ser::{Serialize, Serializer};
-    use std::collections::HashMap;
-
-    pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        T: Serialize,
-        S: Serializer,
-    {
-        value.serialize(serializer)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<HashMap<String, String>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let j: Vec<(String, String)> = Vec::deserialize(deserializer)?;
-        Ok(j.into_iter().collect())
-    }
-}

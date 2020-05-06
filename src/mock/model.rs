@@ -47,7 +47,6 @@ pub struct HttpRequest {
     pub path: Option<String>,
     pub body: Option<RequestBody>,
     pub params: Vec<(String, String)>,
-    #[serde(with = "serde_mock::dhall_listtomap")]
     pub headers: HashMap<String, String>,
 }
 
@@ -58,7 +57,6 @@ pub struct HttpResponse {
     #[serde(rename = "statusReason")]
     pub status_reason: Option<String>,
     pub body: Option<String>,
-    #[serde(with = "serde_mock::dhall_listtomap")]
     pub headers: HashMap<String, String>,
 }
 
