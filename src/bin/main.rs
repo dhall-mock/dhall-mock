@@ -21,7 +21,6 @@ use tokio::sync::oneshot;
 #[structopt(name = "dhall-mock")]
 struct CliOpt {
     /// Dhall configuration files to parse
-    #[structopt(required = true)]
     configuration_files: Vec<String>,
     /// http binding for server
     #[structopt(short, long, default_value = "0.0.0.0:8088")]
