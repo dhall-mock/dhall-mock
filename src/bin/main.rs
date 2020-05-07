@@ -91,23 +91,18 @@ fn load_configuration_files(
         {
             Ok(configuration_content) => {
                 let state = state.clone();
+                let load = move || match add_configuration(
+                    state,
+                    configuration.clone(),
+                    configuration_content,
+                ) {
+                    Ok(()) => info!("Configuration {} loaded", configuration),
+                    Err(e) => warn!("Error loading configuration {} : {:#}", configuration, e),
+                };
                 if wait {
-                    match add_configuration(state, configuration.clone(), configuration_content) {
-                        Ok(()) => info!("Configuration {} loaded", configuration),
-                        Err(e) => warn!("Error loading configuration {} : {:#}", configuration, e),
-                    };
+                    load();
                 } else {
-                    target_runtime.spawn(async move {
-                        match tokio::task::block_in_place(|| {
-                            add_configuration(state, configuration.clone(), configuration_content)
-                        }) {
-                            Ok(()) => info!("Configuration {} loaded", configuration),
-                            Err(e) => {
-                                warn!("Error loading configuration {} : {:#}", configuration, e)
-                            }
-                        };
-                    });
-                    ()
+                    target_runtime.spawn(async move { tokio::task::block_in_place(load) });
                 }
             }
             Err(e) => warn!("Error loading configuration file : \n{:#}", e),
