@@ -9,7 +9,7 @@ use tokio::sync::oneshot::Receiver;
 use anyhow::{anyhow, Context, Error};
 
 use super::not_found_response;
-use crate::mock::service::add_configuration;
+use crate::mock::service::add_configuration_async;
 use crate::mock::service::SharedState;
 use bytes::buf::BufExt;
 use std::io::Read;
@@ -82,7 +82,7 @@ async fn handler(
                 .read_to_string(&mut read_body)?;
 
             match target_runtime
-                .spawn(add_configuration(
+                .spawn(add_configuration_async(
                     state,
                     "POST web configuration".to_string(),
                     read_body,

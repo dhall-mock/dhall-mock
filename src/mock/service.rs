@@ -16,15 +16,14 @@ pub struct State {
 pub type SharedState = Arc<RwLock<State>>;
 
 // TODO add unit tests
-pub async fn add_configuration(
+pub fn add_configuration(
     state: SharedState,
     id: String,
     configuration: String,
 ) -> Result<(), Error> {
     info!("Start load {} config", id);
     let now = Instant::now();
-    let result = block_in_place(move || compile_configuration(&configuration))
-        .context(format!("Error compiling {}", id));
+    let result = compile_configuration(&configuration).context(format!("Error compiling {}", id));
     info!("Loaded {}, in {} secs", id, now.elapsed().as_secs());
     let mut expectation = result?;
     let mut state = state
@@ -32,6 +31,14 @@ pub async fn add_configuration(
         .map_err(|_| anyhow!("Can't acquire write lock on state"))?;
     state.expectations.append(&mut expectation);
     Ok(())
+}
+
+pub async fn add_configuration_async(
+    state: SharedState,
+    id: String,
+    configuration: String,
+) -> Result<(), Error> {
+    block_in_place(move || add_configuration(state, id, configuration))
 }
 
 // Todo add Unit tests
