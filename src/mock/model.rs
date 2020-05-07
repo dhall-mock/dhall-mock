@@ -66,53 +66,107 @@ pub struct Expectation {
     pub response: HttpResponse,
 }
 
-impl Expectation {
-    pub fn test(&self, req: &IncomingRequest) -> bool {
-        let match_method = self
-            .request
+pub struct AndPredicate<'a> {
+    pred1: &'a dyn Predicate,
+    pred2: &'a dyn Predicate,
+}
+
+impl<'a> Predicate for AndPredicate<'a> {
+    fn test(&self, exp: &Expectation, req: &IncomingRequest) -> bool {
+        if self.pred1.test(exp, req) {
+            return self.pred2.test(exp, req);
+        }
+        false
+    }
+}
+
+pub fn and<'a>(pred1: &'a dyn Predicate, pred2: &'a dyn Predicate) -> AndPredicate<'a> {
+    AndPredicate {
+        pred1: pred1,
+        pred2: pred2,
+    }
+}
+
+pub struct MatchMethod;
+
+impl Predicate for MatchMethod {
+    fn test(&self, exp: &Expectation, req: &IncomingRequest) -> bool {
+        exp.request
             .method
             .as_ref()
             .map(|m| m == &req.method)
-            .unwrap_or(true);
+            .unwrap_or(true)
+    }
+}
 
-        let match_path = self
-            .request
+pub struct MatchPath;
+
+impl Predicate for MatchPath {
+    fn test(&self, exp: &Expectation, req: &IncomingRequest) -> bool {
+        exp.request
             .path
             .as_ref()
             .map(|p| p == &req.path)
-            .unwrap_or(true);
+            .unwrap_or(true)
+    }
+}
 
-        let body_match = match &self.request.body {
+pub struct MatchBody;
+
+impl Predicate for MatchBody {
+    fn test(&self, exp: &Expectation, req: &IncomingRequest) -> bool {
+        match &exp.request.body {
             Some(RequestBody::JSON { json }) => serde_json::from_str(req.body.as_ref())
                 .map(|body: Value| *json == body)
                 .unwrap_or(false),
             Some(RequestBody::TEXT { text }) => *text == req.body,
             _ => true,
-        };
-
-        let mut header_match = true;
-        for (k, v) in self.request.headers.iter() {
-            match req.headers.get(k) {
-                Some(vv) if v == vv => continue,
-                _ => {
-                    header_match = false;
-                    break;
-                }
-            }
         }
+    }
+}
 
-        let mut params_match = true;
-        for (k, v) in self.request.params.iter() {
+struct MatchParams;
+
+impl Predicate for MatchParams {
+    fn test(&self, exp: &Expectation, req: &IncomingRequest) -> bool {
+        for (k, v) in exp.request.params.iter() {
             match req.params.get(k) {
                 Some(set) if set.contains(v) => continue,
-                _ => {
-                    params_match = false;
-                    break;
-                }
+                _ => return false,
             }
         }
+        true
+    }
+}
 
-        match_method && match_path && body_match && header_match && params_match
+struct MatchHeaders;
+
+impl Predicate for MatchHeaders {
+    fn test(&self, exp: &Expectation, req: &IncomingRequest) -> bool {
+        for (k, v) in exp.request.headers.iter() {
+            match req.headers.get(k) {
+                Some(vv) if v == vv => continue,
+                _ => return false,
+            }
+        }
+        true
+    }
+}
+
+pub trait Predicate {
+    fn test(&self, exp: &Expectation, req: &IncomingRequest) -> bool;
+}
+
+impl Expectation {
+    pub fn test(&self, req: &IncomingRequest) -> bool {
+        and(
+            &MatchMethod,
+            &and(
+                &MatchPath,
+                &and(&MatchBody, &and(&MatchParams, &MatchHeaders)),
+            ),
+        )
+        .test(self, req)
     }
 
     pub fn look_for_expectation<'a, 'b>(
