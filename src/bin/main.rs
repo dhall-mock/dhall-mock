@@ -7,7 +7,7 @@ use signal_hook::iterator::Signals;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
-use dhall_mock::mock::service::{add_configuration, add_configuration_async, SharedState, State};
+use dhall_mock::mock::service::{add_configuration, SharedState, State};
 use dhall_mock::web::admin::AdminServerContext;
 use dhall_mock::web::mock::MockServerContext;
 use dhall_mock::{create_loader_runtime, start_logger, start_servers};
@@ -98,13 +98,9 @@ fn load_configuration_files(
                     };
                 } else {
                     target_runtime.spawn(async move {
-                        match add_configuration_async(
-                            state,
-                            configuration.clone(),
-                            configuration_content,
-                        )
-                        .await
-                        {
+                        match tokio::task::block_in_place(|| {
+                            add_configuration(state, configuration.clone(), configuration_content)
+                        }) {
                             Ok(()) => info!("Configuration {} loaded", configuration),
                             Err(e) => {
                                 warn!("Error loading configuration {} : {:#}", configuration, e)

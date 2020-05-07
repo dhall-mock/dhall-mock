@@ -2,7 +2,6 @@ use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
 use log::info;
-use tokio::task::block_in_place;
 
 use anyhow::{anyhow, Context, Error};
 
@@ -31,14 +30,6 @@ pub fn add_configuration(
         .map_err(|_| anyhow!("Can't acquire write lock on state"))?;
     state.expectations.append(&mut expectation);
     Ok(())
-}
-
-pub async fn add_configuration_async(
-    state: SharedState,
-    id: String,
-    configuration: String,
-) -> Result<(), Error> {
-    block_in_place(move || add_configuration(state, id, configuration))
 }
 
 // Todo add Unit tests
