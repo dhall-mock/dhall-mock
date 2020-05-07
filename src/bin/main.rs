@@ -26,8 +26,10 @@ struct CliOpt {
     /// http binding for server
     #[structopt(short, long, default_value = "0.0.0.0:8088")]
     http_bind: String,
+    /// http binding for admin server
     #[structopt(short, long, default_value = "0.0.0.0:8089")]
     admin_http_bind: String,
+    /// wait to compile all configuration files before starting web servers
     #[structopt(short, long)]
     wait: bool,
 }
