@@ -23,6 +23,19 @@ We choose to base our configuration on [Dhall lang](https://github.com/dhall-lan
 
 ## Usage
 
+### Install
+
+**From release** :  
+Download your distribution binary in [release page](https://github.com/dhall-mock/dhall-mock/releases/latest), add it to you path and your are good to go :thumbsup: 
+
+**Build from sources** :
+```bash
+> git clone git@github.com:dhall-mock/dhall-mock.git
+> cd dhall-mock
+> cargo build --release
+> ./target/release/main --help
+```
+
 ### Command line
 
 ```bash
@@ -43,7 +56,7 @@ ARGS:
     <configuration-files>...    Dhall configuration files to parse
 ```
 
-#### Example : Use a static configuration
+### Getting started
 
 Create a static configuration file `static.dhall` :
 ```dhall
@@ -214,19 +227,6 @@ In the mean time you can read the exposed configuration [here](dhall/Mock/packag
 A configuration that create responses for `GET` method on `/greet/pwet` and `/greet/wololo` : [configuration](dhall/static.dhall)
 
 Configuration that create responses based on a list of users and for each create a `GET ["ContentType": "application/json"] /users/{id}` route with associated json body : [configuration](dhall/example.dhall)
-
-## Install
-
-**From release** :  
-Download your distribution binary in [release page](https://github.com/dhall-mock/dhall-mock/releases/latest), add it to you path and your are good to go :thumbsup: 
-
-**Build from sources** :
-```bash
-> git clone git@github.com:dhall-mock/dhall-mock.git
-> cd dhall-mock
-> cargo build --release
-> ./target/release/main --help
-```
 
 ## Contributing
 
