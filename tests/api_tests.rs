@@ -25,7 +25,7 @@ where
     T: FnOnce(Arc<RwLock<State>>, u16, u16) -> () + panic::UnwindSafe,
 {
     let _ignore = dhall_mock::start_logger();
-    let mut loader_rt = runtime::Runtime::new().unwrap();
+    let loader_rt = runtime::Runtime::new().unwrap();
     let mut web_rt = runtime::Runtime::new().unwrap();
     let (web_send_close, web_close_channel) = oneshot::channel::<()>();
     let (admin_send_close, admin_close_channel) = oneshot::channel::<()>();
@@ -47,16 +47,7 @@ where
     .unwrap();
 
     let conf = fs::read_to_string("./dhall/static.dhall").unwrap();
-    loader_rt
-        .block_on(async {
-            tokio::task::spawn(add_configuration(
-                state.clone(),
-                "Init conf".to_string(),
-                conf,
-            ))
-            .await?
-        })
-        .unwrap();
+    add_configuration(state.clone(), "Init conf".to_string(), conf).unwrap();
 
     let join = web_rt.spawn(start_servers(
         MockServerContext {

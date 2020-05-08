@@ -11,6 +11,7 @@ use dhall_mock::mock::service::{add_configuration, SharedState, State};
 use dhall_mock::web::admin::AdminServerContext;
 use dhall_mock::web::mock::MockServerContext;
 use dhall_mock::{create_loader_runtime, start_logger, start_servers};
+use std::borrow::BorrowMut;
 use std::fs;
 use structopt::StructOpt;
 use tokio::runtime::Runtime;
@@ -20,19 +21,22 @@ use tokio::sync::oneshot;
 #[structopt(name = "dhall-mock")]
 struct CliOpt {
     /// Dhall configuration files to parse
-    #[structopt(required = true)]
     configuration_files: Vec<String>,
     /// http binding for server
     #[structopt(short, long, default_value = "0.0.0.0:8088")]
     http_bind: String,
+    /// http binding for admin server
     #[structopt(short, long, default_value = "0.0.0.0:8089")]
     admin_http_bind: String,
+    /// wait to compile all configuration files before starting web servers
+    #[structopt(short, long)]
+    wait: bool,
 }
 
 fn main() -> Result<(), Error> {
     start_logger()?;
     let mut web_rt = Runtime::new()?;
-    let loading_rt = Arc::new(create_loader_runtime()?);
+    let mut loading_rt = create_loader_runtime()?;
 
     let cli_args = CliOpt::from_args();
 
@@ -42,7 +46,8 @@ fn main() -> Result<(), Error> {
     }));
 
     load_configuration_files(
-        loading_rt.clone(),
+        loading_rt.borrow_mut(),
+        cli_args.wait,
         state.clone(),
         cli_args.configuration_files.into_iter(),
     );
@@ -63,7 +68,7 @@ fn main() -> Result<(), Error> {
         http_bind: cli_args.admin_http_bind,
         state: state.clone(),
         close_channel: admin_close_channel,
-        target_runtime: loading_rt,
+        target_runtime: Arc::new(loading_rt),
     };
 
     let result = web_rt.block_on(start_servers(mock_server_context, admin_server_context));
@@ -74,7 +79,8 @@ fn main() -> Result<(), Error> {
 }
 
 fn load_configuration_files(
-    target_runtime: Arc<Runtime>,
+    target_runtime: &mut Runtime,
+    wait: bool,
     state: SharedState,
     configurations: impl Iterator<Item = String>,
 ) {
@@ -84,14 +90,19 @@ fn load_configuration_files(
         {
             Ok(configuration_content) => {
                 let state = state.clone();
-                target_runtime.spawn(async move {
-                    match add_configuration(state, configuration.clone(), configuration_content)
-                        .await
-                    {
-                        Ok(()) => info!("Configuration {} loaded", configuration),
-                        Err(e) => warn!("Error loading configuration {} : {:#}", configuration, e),
-                    }
-                });
+                let load = move || match add_configuration(
+                    state,
+                    configuration.clone(),
+                    configuration_content,
+                ) {
+                    Ok(()) => info!("Configuration {} loaded", configuration),
+                    Err(e) => warn!("Error loading configuration {} : {:#}", configuration, e),
+                };
+                if wait {
+                    load();
+                } else {
+                    target_runtime.spawn(async move { tokio::task::block_in_place(load) });
+                }
             }
             Err(e) => warn!("Error loading configuration file : \n{:#}", e),
         }

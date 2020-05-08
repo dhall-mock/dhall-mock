@@ -2,7 +2,6 @@ use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
 use log::info;
-use tokio::task::block_in_place;
 
 use anyhow::{anyhow, Context, Error};
 
@@ -16,15 +15,14 @@ pub struct State {
 pub type SharedState = Arc<RwLock<State>>;
 
 // TODO add unit tests
-pub async fn add_configuration(
+pub fn add_configuration(
     state: SharedState,
     id: String,
     configuration: String,
 ) -> Result<(), Error> {
     info!("Start load {} config", id);
     let now = Instant::now();
-    let result = block_in_place(move || compile_configuration(&configuration))
-        .context(format!("Error compiling {}", id));
+    let result = compile_configuration(&configuration).context(format!("Error compiling {}", id));
     info!("Loaded {}, in {} secs", id, now.elapsed().as_secs());
     let mut expectation = result?;
     let mut state = state

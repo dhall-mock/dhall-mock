@@ -82,11 +82,11 @@ async fn handler(
                 .read_to_string(&mut read_body)?;
 
             match target_runtime
-                .spawn(add_configuration(
-                    state,
-                    "POST web configuration".to_string(),
-                    read_body,
-                ))
+                .spawn(async {
+                    tokio::task::block_in_place(|| {
+                        add_configuration(state, "POST web configuration".to_string(), read_body)
+                    })
+                })
                 .await?
             {
                 Ok(()) => Response::builder()
