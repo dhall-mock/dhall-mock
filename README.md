@@ -41,21 +41,24 @@ Download your distribution binary in [release page](https://github.com/dhall-moc
 ### Command line
 
 ```bash
-> dhall-mock 0.0.1
+> dhall-mock
+dhall-mock 0.0.1
 
 USAGE:
-    main [OPTIONS] <configuration-files>...
+    main [FLAGS] [OPTIONS] [configuration-files]...
 
 FLAGS:
         --help       Prints help information
     -V, --version    Prints version information
+    -w, --wait       wait to compile all configuration files before starting web servers
 
 OPTIONS:
-    -a, --admin-http-bind <admin-http-bind>    http binding for admin [default: 0.0.0.0:8089]
+    -a, --admin-http-bind <admin-http-bind>    http binding for admin server [default: 0.0.0.0:8089]
     -h, --http-bind <http-bind>                http binding for server [default: 0.0.0.0:8088]
 
 ARGS:
     <configuration-files>...    Dhall configuration files to parse
+
 ```
 
 ### Getting started
