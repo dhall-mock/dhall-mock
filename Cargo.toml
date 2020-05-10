@@ -1,6 +1,6 @@
 [package]
 name = "dhall-mock"
-version = "0.0.1"
+version = "0.1.0"
 authors = [
     "fteychene <francois.teychene@gmail.com>",
     "rlecomte <romain.lecomte@gmail.com>"
