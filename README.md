@@ -1,6 +1,6 @@
 # Dhall mock server
 ![build](https://github.com/dhall-mock/dhall-mock/workflows/build/badge.svg?branch=master)
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/dhall-mock/dhall-mock)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/dhall-mock/dhall-mock)](https://github.com/dhall-mock/dhall-mock/releases/latest)
 
 ## Project
 
@@ -26,7 +26,7 @@ We choose to base our configuration on [Dhall lang](https://github.com/dhall-lan
 
 ### Install
 
-**From release** ![GitHub release (latest by date)](https://img.shields.io/github/v/release/dhall-mock/dhall-mock)
+**From release** [![GitHub release (latest by date)](https://img.shields.io/github/v/release/dhall-mock/dhall-mock)](https://github.com/dhall-mock/dhall-mock/releases/latest)
 
 Download your distribution binary in [release page](https://github.com/dhall-mock/dhall-mock/releases/latest), add it to you path and your are good to go :thumbsup: 
 
