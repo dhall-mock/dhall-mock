@@ -1,5 +1,7 @@
 use env_logger::Env;
 
+use std::future::Future;
+
 use anyhow::{anyhow, Context, Error};
 
 use web::admin::{server as admin_server, AdminServerContext};
@@ -28,8 +30,9 @@ pub fn start_logger() -> Result<(), Error> {
 pub async fn start_servers(
     mock_context: MockServerContext,
     admin_context: AdminServerContext,
+    // sigint: impl Future<Output = Result<(), Error>>,
 ) -> Result<(), Error> {
-    tokio::try_join!(mock_server(mock_context), admin_server(admin_context))
+    tokio::try_join!(mock_server(mock_context), admin_server(admin_context),)
         .map(|_| ())
         .context("Error on running web servers")
 }
