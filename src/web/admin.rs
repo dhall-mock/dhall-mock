@@ -11,13 +11,13 @@ use anyhow::{anyhow, Context, Error};
 use super::not_found_response;
 use crate::mock::service::add_configuration;
 use crate::mock::service::SharedState;
+use crate::web::utils;
 use bytes::buf::BufExt;
 use std::io::Read;
 
 pub struct AdminServerContext {
     pub http_bind: String,
     pub state: SharedState,
-    pub close_channel: Receiver<()>,
     // Not your obvious way of thinking I guess. THUG LIFE
     pub target_runtime: Arc<Runtime>, // TODO Fn(Future) -> Future
 }
@@ -26,7 +26,6 @@ pub(crate) async fn server(context: AdminServerContext) -> Result<(), Error> {
     let AdminServerContext {
         http_bind,
         state,
-        close_channel,
         target_runtime,
     } = context;
     let make_svc = make_service_fn(move |_| {
@@ -49,9 +48,7 @@ pub(crate) async fn server(context: AdminServerContext) -> Result<(), Error> {
         .context(format!("{} is not a valid ip config", http_bind))?;
     let server = Server::bind(&addr)
         .serve(make_svc)
-        .with_graceful_shutdown(async {
-            close_channel.await.ok();
-        });
+        .with_graceful_shutdown(utils::sigint(String::from("admin service")));
 
     info!("Admin server started on http://{}", addr);
     server.await.context("Error on admin server execution")

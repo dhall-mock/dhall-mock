@@ -14,19 +14,15 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use super::not_found_response;
+use crate::web::utils;
 
 pub struct MockServerContext {
     pub http_bind: String,
     pub state: SharedState,
-    pub close_channel: Receiver<()>,
 }
 
 pub(crate) async fn server(context: MockServerContext) -> Result<(), Error> {
-    let MockServerContext {
-        http_bind,
-        state,
-        close_channel,
-    } = context;
+    let MockServerContext { http_bind, state } = context;
 
     let make_svc = make_service_fn(move |_| {
         let state = state.clone();
@@ -48,9 +44,7 @@ pub(crate) async fn server(context: MockServerContext) -> Result<(), Error> {
         .context(format!("{} is not a valid ip config", http_bind))?;
     let server = Server::bind(&addr)
         .serve(make_svc)
-        .with_graceful_shutdown(async {
-            close_channel.await.ok();
-        });
+        .with_graceful_shutdown(utils::sigint(String::from("mock service")));
 
     info!("Http server started on http://{}", addr);
     server.await.context("Error on web server execution")
