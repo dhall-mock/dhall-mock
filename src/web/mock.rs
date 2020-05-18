@@ -4,7 +4,6 @@ use anyhow::{anyhow, Context, Error};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server};
 use log::{debug, info};
-use tokio::sync::oneshot::Receiver;
 
 use crate::mock::model::{Expectation, HttpMethod, IncomingRequest, QueryParams};
 use crate::mock::service::search_for_mock;
