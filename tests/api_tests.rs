@@ -26,6 +26,7 @@ where
 {
     let _ignore = dhall_mock::start_logger();
     let loader_rt = runtime::Runtime::new().unwrap();
+    let loader_rt_handle = loader_rt.handle().clone();
     let mut web_rt = runtime::Runtime::new().unwrap();
     let (web_send_close, web_close_channel) = oneshot::channel::<()>();
     let (admin_send_close, admin_close_channel) = oneshot::channel::<()>();
@@ -53,13 +54,11 @@ where
         MockServerContext {
             http_bind: format!("0.0.0.0:{}", web_port),
             state: state.clone(),
-            close_channel: web_close_channel,
         },
         AdminServerContext {
             http_bind: format!("0.0.0.0:{}", admin_port),
             state: state.clone(),
-            close_channel: admin_close_channel,
-            target_runtime: Arc::new(loader_rt),
+            loadind_rt_handle: loader_rt_handle,
         },
     ));
     drop(lock);

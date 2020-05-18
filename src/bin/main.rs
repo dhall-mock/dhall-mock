@@ -36,6 +36,7 @@ fn main() -> Result<(), Error> {
     start_logger()?;
     let mut web_rt = Runtime::new()?;
     let mut loading_rt = create_loader_runtime()?;
+    let loading_rt_handle = loading_rt.handle().clone();
 
     let cli_args = CliOpt::from_args();
 
@@ -59,12 +60,12 @@ fn main() -> Result<(), Error> {
     let admin_server_context = AdminServerContext {
         http_bind: cli_args.admin_http_bind,
         state: state.clone(),
-        target_runtime: Arc::new(loading_rt),
+        loadind_rt_handle: loading_rt_handle,
     };
 
     web_rt.block_on(start_servers(mock_server_context, admin_server_context));
 
-    web_rt.shutdown_timeout(Duration::from_secs(10));
+    web_rt.shutdown_timeout(Duration::from_secs(1));
     // Can't shutdown loading_rt as shutdown_timeout need to move value and we can't anymore since we are sharing via Arc this Runtime ...
     // loading_rt.shutdown_timeout(Duration::from_secs(1));
     Ok(())
