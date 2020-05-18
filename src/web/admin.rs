@@ -1,10 +1,7 @@
-use std::sync::Arc;
-
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use log::{debug, info};
-use tokio::runtime::{Handle, Runtime};
-use tokio::sync::oneshot::Receiver;
+use tokio::runtime::Handle;
 
 use anyhow::{anyhow, Context, Error};
 

@@ -1,6 +1,6 @@
 extern crate dhall_mock;
 
-use anyhow::{anyhow, Context, Error};
+use anyhow::{Context, Error};
 use log::{info, warn};
 
 use std::sync::{Arc, RwLock};
@@ -14,7 +14,6 @@ use std::borrow::BorrowMut;
 use std::fs;
 use structopt::StructOpt;
 use tokio::runtime::Runtime;
-use tokio::sync::oneshot;
 
 #[derive(StructOpt, Debug, Clone)]
 #[structopt(name = "dhall-mock")]
@@ -59,16 +58,16 @@ fn main() -> Result<(), Error> {
 
     let admin_server_context = AdminServerContext {
         http_bind: cli_args.admin_http_bind,
-        state: state.clone(),
+        state: state,
         loadind_rt_handle: loading_rt_handle,
     };
 
-    web_rt.block_on(start_servers(mock_server_context, admin_server_context));
+    let result = web_rt.block_on(start_servers(mock_server_context, admin_server_context));
 
     web_rt.shutdown_timeout(Duration::from_secs(1));
     // Can't shutdown loading_rt as shutdown_timeout need to move value and we can't anymore since we are sharing via Arc this Runtime ...
     // loading_rt.shutdown_timeout(Duration::from_secs(1));
-    Ok(())
+    result
 }
 
 fn load_configuration_files(

@@ -1,7 +1,5 @@
 use env_logger::Env;
 
-use std::future::Future;
-
 use anyhow::{anyhow, Context, Error};
 
 use web::admin::{server as admin_server, AdminServerContext};
