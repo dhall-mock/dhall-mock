@@ -1,37 +1,33 @@
-use std::sync::Arc;
-
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use log::{debug, info};
-use tokio::runtime::Runtime;
-use tokio::sync::oneshot::Receiver;
+use tokio::runtime::Handle;
 
 use anyhow::{anyhow, Context, Error};
 
 use super::not_found_response;
 use crate::mock::service::add_configuration;
 use crate::mock::service::SharedState;
+use crate::web::utils;
 use bytes::buf::BufExt;
 use std::io::Read;
 
 pub struct AdminServerContext {
     pub http_bind: String,
     pub state: SharedState,
-    pub close_channel: Receiver<()>,
     // Not your obvious way of thinking I guess. THUG LIFE
-    pub target_runtime: Arc<Runtime>, // TODO Fn(Future) -> Future
+    pub loadind_rt_handle: Handle, // TODO Fn(Future) -> Future
 }
 
 pub(crate) async fn server(context: AdminServerContext) -> Result<(), Error> {
     let AdminServerContext {
         http_bind,
         state,
-        close_channel,
-        target_runtime,
+        loadind_rt_handle,
     } = context;
     let make_svc = make_service_fn(move |_| {
         let state = state.clone();
-        let target_runtime = target_runtime.clone();
+        let loadind_rt_handle = loadind_rt_handle.clone();
         async {
             Ok::<_, Error>(service_fn(move |req| {
                 debug!(
@@ -39,7 +35,7 @@ pub(crate) async fn server(context: AdminServerContext) -> Result<(), Error> {
                     req.method(),
                     req.uri().path()
                 );
-                handler(req, state.clone(), target_runtime.clone())
+                handler(req, state.clone(), loadind_rt_handle.clone())
             }))
         }
     });
@@ -49,9 +45,7 @@ pub(crate) async fn server(context: AdminServerContext) -> Result<(), Error> {
         .context(format!("{} is not a valid ip config", http_bind))?;
     let server = Server::bind(&addr)
         .serve(make_svc)
-        .with_graceful_shutdown(async {
-            close_channel.await.ok();
-        });
+        .with_graceful_shutdown(utils::sigint(String::from("admin service")));
 
     info!("Admin server started on http://{}", addr);
     server.await.context("Error on admin server execution")
@@ -60,7 +54,7 @@ pub(crate) async fn server(context: AdminServerContext) -> Result<(), Error> {
 async fn handler(
     req: Request<hyper::Body>,
     state: SharedState,
-    target_runtime: Arc<Runtime>,
+    loadind_rt_handle: Handle,
 ) -> Result<Response<Body>, Error> {
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/expectations") => {
@@ -81,7 +75,7 @@ async fn handler(
                 .reader()
                 .read_to_string(&mut read_body)?;
 
-            match target_runtime
+            match loadind_rt_handle
                 .spawn(async {
                     tokio::task::block_in_place(|| {
                         add_configuration(state, "POST web configuration".to_string(), read_body)

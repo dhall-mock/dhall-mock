@@ -3,6 +3,7 @@ use hyper::{Body, Response, StatusCode};
 
 pub mod admin;
 pub mod mock;
+pub mod utils;
 
 fn not_found_response() -> Result<Response<Body>, Error> {
     Response::builder()

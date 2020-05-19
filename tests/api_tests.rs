@@ -8,13 +8,13 @@ use std::sync::Mutex;
 use std::sync::{Arc, RwLock};
 use std::{fs, panic};
 use tokio::runtime;
-use tokio::sync::oneshot;
 
 use dhall_mock::mock::model::{Expectation, HttpMethod, HttpRequest, HttpResponse};
 use dhall_mock::mock::service::{add_configuration, State};
 use dhall_mock::start_servers;
 use dhall_mock::web::admin::AdminServerContext;
 use dhall_mock::web::mock::MockServerContext;
+use std::time::Duration;
 
 lazy_static! {
     static ref PORT_USED: Mutex<Vec<u16>> = Mutex::new(vec![]);
@@ -26,9 +26,9 @@ where
 {
     let _ignore = dhall_mock::start_logger();
     let loader_rt = runtime::Runtime::new().unwrap();
-    let mut web_rt = runtime::Runtime::new().unwrap();
-    let (web_send_close, web_close_channel) = oneshot::channel::<()>();
-    let (admin_send_close, admin_close_channel) = oneshot::channel::<()>();
+    let loader_rt_handle = loader_rt.handle().clone();
+    let web_rt = runtime::Runtime::new().unwrap();
+    let web_rt_handle = web_rt.handle().clone();
 
     let state = Arc::new(RwLock::new(State {
         expectations: vec![],
@@ -49,32 +49,26 @@ where
     let conf = fs::read_to_string("./dhall/static.dhall").unwrap();
     add_configuration(state.clone(), "Init conf".to_string(), conf).unwrap();
 
-    let join = web_rt.spawn(start_servers(
+    web_rt_handle.spawn(start_servers(
         MockServerContext {
             http_bind: format!("0.0.0.0:{}", web_port),
             state: state.clone(),
-            close_channel: web_close_channel,
         },
         AdminServerContext {
             http_bind: format!("0.0.0.0:{}", admin_port),
             state: state.clone(),
-            close_channel: admin_close_channel,
-            target_runtime: Arc::new(loader_rt),
+            loadind_rt_handle: loader_rt_handle,
         },
     ));
-    drop(lock);
 
     let result = panic::catch_unwind(|| test(state.clone(), web_port, admin_port));
 
-    teardown(web_send_close, admin_send_close);
+    drop(lock);
 
-    let _ = web_rt.block_on(join);
+    loader_rt.shutdown_timeout(Duration::from_secs(1));
+    web_rt.shutdown_timeout(Duration::from_secs(1));
+
     assert!(result.is_ok())
-}
-
-fn teardown(web_send_close: oneshot::Sender<()>, admin_send_close: oneshot::Sender<()>) {
-    web_send_close.send(()).unwrap();
-    admin_send_close.send(()).unwrap()
 }
 
 #[test]

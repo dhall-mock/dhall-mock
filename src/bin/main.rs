@@ -1,8 +1,7 @@
 extern crate dhall_mock;
 
-use anyhow::{anyhow, Context, Error};
+use anyhow::{Context, Error};
 use log::{info, warn};
-use signal_hook::iterator::Signals;
 
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
@@ -15,7 +14,6 @@ use std::borrow::BorrowMut;
 use std::fs;
 use structopt::StructOpt;
 use tokio::runtime::Runtime;
-use tokio::sync::oneshot;
 
 #[derive(StructOpt, Debug, Clone)]
 #[structopt(name = "dhall-mock")]
@@ -37,6 +35,7 @@ fn main() -> Result<(), Error> {
     start_logger()?;
     let mut web_rt = Runtime::new()?;
     let mut loading_rt = create_loader_runtime()?;
+    let loading_rt_handle = loading_rt.handle().clone();
 
     let cli_args = CliOpt::from_args();
 
@@ -52,26 +51,19 @@ fn main() -> Result<(), Error> {
         cli_args.configuration_files.into_iter(),
     );
 
-    // Start web server
-    let (web_send_close, web_close_channel) = oneshot::channel::<()>();
-    let (admin_send_close, admin_close_channel) = oneshot::channel::<()>();
-
-    std::thread::spawn(move || sigint_handling(web_send_close, admin_send_close));
-
     let mock_server_context = MockServerContext {
         http_bind: cli_args.http_bind,
         state: state.clone(),
-        close_channel: web_close_channel,
     };
 
     let admin_server_context = AdminServerContext {
         http_bind: cli_args.admin_http_bind,
-        state: state.clone(),
-        close_channel: admin_close_channel,
-        target_runtime: Arc::new(loading_rt),
+        state: state,
+        loadind_rt_handle: loading_rt_handle,
     };
 
     let result = web_rt.block_on(start_servers(mock_server_context, admin_server_context));
+
     web_rt.shutdown_timeout(Duration::from_secs(1));
     // Can't shutdown loading_rt as shutdown_timeout need to move value and we can't anymore since we are sharing via Arc this Runtime ...
     // loading_rt.shutdown_timeout(Duration::from_secs(1));
@@ -106,25 +98,5 @@ fn load_configuration_files(
             }
             Err(e) => warn!("Error loading configuration file : \n{:#}", e),
         }
-    }
-}
-
-fn sigint_handling(
-    web_send_close: oneshot::Sender<()>,
-    admin_send_close: oneshot::Sender<()>,
-) -> Result<(), Error> {
-    let signals = Signals::new(&[signal_hook::SIGINT])?;
-    // Wait for signal
-    match signals.forever().next() {
-        Some(signal_hook::SIGINT) => {
-            web_send_close
-                .send(())
-                .unwrap_or_else(|_| warn!("Error graceful shutdown"));
-            admin_send_close
-                .send(())
-                .unwrap_or_else(|_| warn!("Error graceful shutdown"));
-            Ok(())
-        }
-        _ => Err(anyhow!("Captured signal that should not be managed")),
     }
 }
