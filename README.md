@@ -22,48 +22,10 @@ We choose to base our configuration on [Dhall lang](https://github.com/dhall-lan
  - **No side effects** - Use a real programming language with libraries, living ecosystem, could define complex configuration pipelines and be safe to integrate any configuration file.
  - **We wanted to** - Most importantly, we wanted to use dhall because we like this language and wanted to use it :wink: 
 
-## Usage
+## Getting started
 
-### Install
+#### Create a static configuration file `static.dhall`
 
-**From release** [![GitHub release (latest by date)](https://img.shields.io/github/v/release/dhall-mock/dhall-mock)](https://github.com/dhall-mock/dhall-mock/releases/latest)
-
-Download your distribution binary in [release page](https://github.com/dhall-mock/dhall-mock/releases/latest), add it to you path and your are good to go :thumbsup: 
-
-**Build from sources** :
-```bash
-> git clone git@github.com:dhall-mock/dhall-mock.git
-> cd dhall-mock
-> cargo build --release
-> ./target/release/main --help
-```
-
-### Command line
-
-```bash
-> dhall-mock
-dhall-mock 0.0.1
-
-USAGE:
-    main [FLAGS] [OPTIONS] [configuration-files]...
-
-FLAGS:
-        --help       Prints help information
-    -V, --version    Prints version information
-    -w, --wait       wait to compile all configuration files before starting web servers
-
-OPTIONS:
-    -a, --admin-http-bind <admin-http-bind>    http binding for admin server [default: 0.0.0.0:8089]
-    -h, --http-bind <http-bind>                http binding for server [default: 0.0.0.0:8088]
-
-ARGS:
-    <configuration-files>...    Dhall configuration files to parse
-
-```
-
-### Getting started
-
-Create a static configuration file `static.dhall` :
 ```dhall
 let Mock = https://raw.githubusercontent.com/dhall-mock/dhall-mock/master/dhall/Mock/package.dhall
 
@@ -118,9 +80,10 @@ let expectations =
 in  expectations
 ```
 
-Start the server using this configuration 
+#### Run a dhall-mock server with this configuration in a docker container :
+
 ```bash
-> dhall-mock static.dhall
+> docker run -v $(pwd):/dhall -p 8088:8088 -p 8089:8089 dhallmock/dhall-mock:master /dhall/static.dhall
 [2020-05-06T19:52:10Z INFO  main] Start dhall mock project 👋
 [2020-05-06T19:52:10Z INFO  dhall_mock::mock::service] Start load static.dhall config
 [2020-05-06T19:52:10Z INFO  dhall_mock::web::mock] Http server started on http://0.0.0.0:8088
@@ -129,7 +92,8 @@ Start the server using this configuration
 [2020-05-06T19:52:10Z INFO  main] Configuration static.dhall loaded
 ```
 
-Try it out ! :rocket: 
+#### Try it out ! :rocket:
+
 ```bash
 > curl http://localhost:8088/greet/pwet
 Hello, pwet !
@@ -137,7 +101,21 @@ Hello, pwet !
 Hello, Wololo !
 ```
 
-### Admin server
+## Install
+
+**From release** [![GitHub release (latest by date)](https://img.shields.io/github/v/release/dhall-mock/dhall-mock)](https://github.com/dhall-mock/dhall-mock/releases/latest)
+
+Download your distribution binary in [release page](https://github.com/dhall-mock/dhall-mock/releases/latest), add it to you path and your are good to go :thumbsup: 
+
+**Build from sources** :
+```bash
+> git clone git@github.com:dhall-mock/dhall-mock.git
+> cd dhall-mock
+> cargo build --release
+> ./target/release/main --help
+```
+
+## Admin server
 
 Admin server allows you to know which configurations are available on the server and create new configurations.
 
