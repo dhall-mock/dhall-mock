@@ -73,7 +73,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dhall-mock-server-x86_64-unknown-linux-musl/main
+          asset_path: dhall-mock-server-x86_64-unknown-linux-gnu/main
           asset_name: dhall-mock-server-x86_64-linux-gnu
           asset_content_type: application/octet-stream
       - name: Upload Linux musl binary
@@ -85,3 +85,23 @@ jobs:
           asset_path: dhall-mock-server-x86_64-unknown-linux-musl/main
           asset_name: dhall-mock-server-x86_64-linux-musl
           asset_content_type: application/octet-stream
+
+  publish_release_docker_image:
+    name: Publish docker image
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@master
+      - name: Download build for x86_64-unknown-linux-gnu
+        uses: actions/download-artifact@v1
+        with:
+          name: dhall-mock-server-x86_64-unknown-linux-gnu
+      - name: Publish to Registry
+        uses: elgohr/Publish-Docker-Github-Action@master
+        with:
+          name: dhallmock/dhall-mock
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          dockerfile: Dockerfile
+          tag_names: true
