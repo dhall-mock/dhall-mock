@@ -83,7 +83,7 @@ in  expectations
 #### Run a dhall-mock server with this configuration in a docker container :
 
 ```bash
-> docker run -v $(pwd):/dhall -p 8088:8088 -p 8089:8089 dhallmock/dhall-mock:master /dhall/static.dhall
+> docker run -v $(pwd):/dhall -p 8088:8088 -p 8089:8089 dhallmock/dhall-mock /dhall/static.dhall
 [2020-05-06T19:52:10Z INFO  main] Start dhall mock project 👋
 [2020-05-06T19:52:10Z INFO  dhall_mock::mock::service] Start load static.dhall config
 [2020-05-06T19:52:10Z INFO  dhall_mock::web::mock] Http server started on http://0.0.0.0:8088
