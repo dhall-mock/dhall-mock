@@ -29,8 +29,10 @@ rayon = "1.4.1"
 rand = "0.7.3"
 futures = "0.3.6"
 retry = "1.1.0"
+quick-xml = "0.18.1"
 
 [features]
 # Force openssl-sys to staticly link in the openssl library. Necessary when
 # cross compiling to x86_64-unknown-linux-musl.
+default = ["vendored"]
 vendored = ["openssl-sys/vendored"]
