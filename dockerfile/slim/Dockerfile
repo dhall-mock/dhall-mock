@@ -22,13 +22,9 @@ RUN chown dhall-mock:dhall-mock dhall_mock_server
 # Release Stage
 # ------------------------------------------------------------------------------
 
-#FROM debian:10-slim
-FROM busybox:glibc
+FROM gcr.io/distroless/cc-debian10
 
 WORKDIR /opt/dhall-mock
-
-COPY lib/libdl.so.2 /lib64/libdl.so.2
-COPY lib/libgcc_s.so.1 /lib64/libgcc_s.so.1
 
 COPY --from=packager /opt/dhall-mock/dhall_mock_server .
 COPY --from=packager /etc/passwd /etc/passwd
