@@ -4,7 +4,6 @@ use anyhow::{Context, Error};
 use log::{info, warn};
 
 use std::sync::{Arc, RwLock};
-use std::time::Duration;
 
 use dhall_mock::mock::service::{add_configuration, SharedState, State};
 use dhall_mock::web::admin::AdminServerContext;
@@ -64,9 +63,6 @@ fn main() -> Result<(), Error> {
 
     let result = web_rt.block_on(start_servers(mock_server_context, admin_server_context));
 
-    web_rt.shutdown_timeout(Duration::from_secs(1));
-    // Can't shutdown loading_rt as shutdown_timeout need to move value and we can't anymore since we are sharing via Arc this Runtime ...
-    // loading_rt.shutdown_timeout(Duration::from_secs(1));
     result
 }
 
