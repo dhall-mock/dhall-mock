@@ -96,3 +96,50 @@ impl Node {
         top
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use quick_xml::Reader;
+
+    #[test]
+    fn test_parsing_xml() {
+        let xml = r#"<tag1 att1 = "test">
+                        <tag2><!--Test comment-->Test</tag2>
+                        <tag2>
+                            Test 2
+                        </tag2>
+                    </tag1>"#;
+
+        let mut reader = Reader::from_str(xml);
+        reader.trim_text(true);
+
+        let tested = Node::parse(reader);
+
+        let tag2_1 = Box::new(Node {
+            name: b"tag2".to_vec(),
+            attributes: HashMap::new(),
+            sub: vec![],
+            value: Some(b"Test".to_vec()),
+        });
+
+        let tag2_2 = Box::new(Node {
+            name: b"tag2".to_vec(),
+            attributes: HashMap::new(),
+            sub: vec![],
+            value: Some(b"Test 2".to_vec()),
+        });
+
+        let mut attrs_tag1 = HashMap::new();
+        attrs_tag1.insert(b"att1".to_vec(), b"test".to_vec());
+
+        let tag1 = Box::new(Node {
+            name: b"tag1".to_vec(),
+            attributes: attrs_tag1,
+            sub: vec![tag2_1, tag2_2],
+            value: None,
+        });
+
+        assert_eq!(vec![tag1], tested);
+    }
+}
