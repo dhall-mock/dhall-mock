@@ -1,7 +1,7 @@
 let map = https://prelude.dhall-lang.org/List/map
 
-let JSON = https://prelude.dhall-lang.org/JSON/package.dhall
-let Mock = https://raw.githubusercontent.com/dhall-mock/dhall-mock/master/dhall/Mock/package.dhall
+let JSON = https://prelude.dhall-lang.org/JSON/package.dhall sha256:79dfc281a05bc7b78f927e0da0c274ee5709b1c55c9e5f59499cb28e9d6f3ec0
+let Mock = https://raw.githubusercontent.com/dhall-mock/dhall-mock/master/dhall/Mock/package.dhall sha256:55595efe4300f51236f725146b98c16776ed8d37887a36b29b76c784b730a213
 
 let User : Type =
     { userId        : Text
