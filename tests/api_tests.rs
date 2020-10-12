@@ -1,55 +1,33 @@
+#![feature(async_closure)]
 extern crate dhall_mock;
 
-use get_port::{get_port_in_range, PortRange};
-use lazy_static::lazy_static;
-use reqwest::blocking::Client;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::sync::{Arc, RwLock};
 use std::{fs, panic};
-use tokio::runtime;
+
+use anyhow::Error;
+use futures::Future;
+use lazy_static::lazy_static;
+use reqwest::blocking::Client;
 
 use dhall_mock::mock::model::{Expectation, HttpMethod, HttpRequest, HttpResponse};
-use dhall_mock::mock::service::{add_configuration, State};
+use dhall_mock::mock::service::{load_configuration, SharedState, State};
 use dhall_mock::start_servers;
 use dhall_mock::web::admin::AdminServerContext;
 use dhall_mock::web::mock::MockServerContext;
-use std::time::Duration;
 
 lazy_static! {
     static ref PORT_USED: Mutex<Vec<u16>> = Mutex::new(vec![]);
 }
 
-fn run_test<T>(test: T) -> ()
-where
-    T: FnOnce(Arc<RwLock<State>>, u16, u16) -> () + panic::UnwindSafe,
-{
-    let _ignore = dhall_mock::start_logger();
-    let loader_rt = runtime::Runtime::new().unwrap();
-    let loader_rt_handle = loader_rt.handle().clone();
-    let web_rt = runtime::Runtime::new().unwrap();
-    let web_rt_handle = web_rt.handle().clone();
-
-    let state = Arc::new(RwLock::new(State {
-        expectations: vec![],
-    }));
-    let lock = PORT_USED.lock().unwrap();
-
-    let web_port = get_port_in_range(PortRange {
-        min: 8000,
-        max: 9000,
-    })
-    .unwrap();
-    let admin_port = get_port_in_range(PortRange {
-        min: 9000,
-        max: 10000,
-    })
-    .unwrap();
-
+async fn run_server(web_port: u16, admin_port: u16, state: SharedState) -> Result<(), Error> {
     let conf = fs::read_to_string("./dhall/static.dhall").unwrap();
-    add_configuration(state.clone(), "Init conf".to_string(), conf).unwrap();
+    load_configuration(state.clone(), "Init conf".to_string(), conf)
+        .await
+        .unwrap();
 
-    web_rt_handle.spawn(start_servers(
+    start_servers(
         MockServerContext {
             http_bind: format!("0.0.0.0:{}", web_port),
             state: state.clone(),
@@ -57,43 +35,69 @@ where
         AdminServerContext {
             http_bind: format!("0.0.0.0:{}", admin_port),
             state: state.clone(),
-            loadind_rt_handle: loader_rt_handle,
         },
-    ));
-
-    let result = panic::catch_unwind(|| test(state.clone(), web_port, admin_port));
-
-    drop(lock);
-
-    loader_rt.shutdown_timeout(Duration::from_secs(1));
-    web_rt.shutdown_timeout(Duration::from_secs(1));
-
-    assert!(result.is_ok())
+    )
+    .await
 }
 
-#[test]
-fn test_api() {
-    run_test(|_, web_port, _| {
+async fn test_wrapper<T, O>(
+    test: T,
+    web_port: u16,
+    admin_port: u16,
+    state: SharedState,
+) -> Result<(), Error>
+where
+    T: FnOnce(SharedState, u16, u16) -> O,
+    O: Future<Output = ()>,
+{
+    test(state, web_port, admin_port);
+    Ok(())
+}
+
+async fn run_test<T, O>(web_port: u16, admin_port: u16, test: T)
+where
+    T: FnOnce(SharedState, u16, u16) -> O,
+    O: Future<Output = ()>,
+{
+    let state = Arc::new(RwLock::new(State {
+        expectations: vec![],
+    }));
+
+    tokio::spawn(run_server(
+        web_port.clone(),
+        admin_port.clone(),
+        state.clone(),
+    ));
+    test_wrapper(test, web_port.clone(), admin_port.clone(), state.clone())
+        .await
+        .expect("Error running test closure");
+}
+
+#[tokio::test]
+async fn test_api() {
+    run_test(8000, 9000, async move |_, web_port, _| {
         let api = format!("http://{}:{}/greet/pwet", "localhost", web_port);
         let req = reqwest::blocking::get(&api).unwrap();
 
         assert_eq!(reqwest::StatusCode::CREATED, req.status());
     })
+    .await
 }
 
-#[test]
-fn test_admin_api() {
-    run_test(|_, _, admin_port| {
+#[tokio::test]
+async fn test_admin_api() {
+    run_test(8001, 9001, async move |_, _, admin_port| {
         let api = format!("http://{}:{}/expectations", "localhost", admin_port);
         let req = reqwest::blocking::get(&api).unwrap();
 
         assert_eq!(reqwest::StatusCode::OK, req.status());
     })
+    .await
 }
 
-#[test]
-fn test_admin_api_post_expectations() {
-    run_test(|state, _, admin_port| {
+#[tokio::test]
+async fn test_admin_api_post_expectations() {
+    run_test(8002, 9002, async move |state, _, admin_port| {
         let api = format!("http://{}:{}/expectations", "localhost", admin_port);
         let req = Client::builder()
             .build()
@@ -138,12 +142,12 @@ fn test_admin_api_post_expectations() {
         };
 
         assert!(state.expectations.contains(&expected))
-    })
+    }).await
 }
 
-#[test]
-fn test_admin_fail_compile_configuration() {
-    run_test(|state, _, admin_port| {
+#[tokio::test]
+async fn test_admin_fail_compile_configuration() {
+    run_test(8003, 9003, async move |state, _, admin_port| {
         let api = format!("http://{}:{}/expectations", "localhost", admin_port);
         let req = Client::builder()
             .build()
@@ -190,4 +194,5 @@ fn test_admin_fail_compile_configuration() {
 
         assert!(!state.expectations.contains(&expected))
     })
+    .await
 }

@@ -1,12 +1,16 @@
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
+use lazy_static::lazy_static;
+use rayon::{ThreadPool, ThreadPoolBuilder};
+
 use log::info;
 
 use anyhow::{anyhow, Context, Error};
 
 use super::compilation::compile_configuration;
 use super::model::{Expectation, IncomingRequest};
+use tokio::sync::oneshot;
 
 pub struct State {
     pub expectations: Vec<Expectation>,
@@ -14,16 +18,31 @@ pub struct State {
 
 pub type SharedState = Arc<RwLock<State>>;
 
-// TODO add unit tests
-pub fn add_configuration(
+lazy_static! {
+    static ref POOL: ThreadPool = ThreadPoolBuilder::new()
+        .num_threads(3)
+        .stack_size(8 * 1024 * 1024)
+        .build()
+        .unwrap();
+}
+
+// Todo add Unit tests
+pub async fn load_configuration(
     state: SharedState,
     id: String,
     configuration: String,
 ) -> Result<(), Error> {
-    info!("Start load {} config", id);
-    let now = Instant::now();
-    let result = compile_configuration(&configuration).context(format!("Error compiling {}", id));
-    info!("Loaded {}, in {} secs", id, now.elapsed().as_secs());
+    let (s, r) = oneshot::channel();
+    POOL.spawn(move || {
+        info!("Start load {} config", id);
+        let now = Instant::now();
+        let result =
+            compile_configuration(&configuration).context(format!("Error compiling {}", id));
+        info!("Loaded {}, in {} secs", id, now.elapsed().as_secs());
+        s.send(result).expect("Error sending result into channel");
+    });
+    // TODO change unwrap
+    let result = r.await.expect("Error listening result into channel");
     let mut expectation = result?;
     let mut state = state
         .write()
