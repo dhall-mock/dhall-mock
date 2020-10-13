@@ -45,6 +45,10 @@ pub(crate) async fn server(context: AdminServerContext) -> Result<(), Error> {
 
 async fn handler(req: Request<hyper::Body>, state: SharedState) -> Result<Response<Body>, Error> {
     match (req.method(), req.uri().path()) {
+        (&Method::GET, "/health") => Response::builder()
+            .status(StatusCode::OK)
+            .body(Body::empty())
+            .map_err(|_| anyhow!("Something bad happened.")),
         (&Method::GET, "/expectations") => {
             let read_state = state
                 .read()
