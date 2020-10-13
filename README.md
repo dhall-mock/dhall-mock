@@ -105,13 +105,22 @@ Hello, Wololo !
 
 **From release** [![GitHub release (latest by date)](https://img.shields.io/github/v/release/dhall-mock/dhall-mock)](https://github.com/dhall-mock/dhall-mock/releases/latest)
 
-Download your distribution binary in [release page](https://github.com/dhall-mock/dhall-mock/releases/latest), add it to you path and your are good to go :thumbsup: 
+Download your distribution binary in [release page](https://github.com/dhall-mock/dhall-mock/releases/latest), grant execution privilege,  add it to you path and your are good to go :thumbsup: 
+
+Example :
+```bash
+# Download 0.1.0 glibc release
+curl https://github.com/dhall-mock/dhall-mock/releases/download/v0.1.0/dhall-mock-server-x86_64-linux-gnu --output dhall-mock
+chmod +x dhall-mock
+mv dhall-mock /usr/bin/dhall-mock
+dhall-mock --help
+```
 
 **Build from sources** :
 ```bash
 > git clone git@github.com:dhall-mock/dhall-mock.git
 > cd dhall-mock
-> cargo build --release
+> cargo build --release --features vendored
 > ./target/release/main --help
 ```
 
