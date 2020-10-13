@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [x86_64-unknown-linux-gnu, x86_64-unknown-linux-musl]
+        target: [x86_64-unknown-linux-gnu, x86_64-unknown-linux-musl, x86_64-pc-windows-gnu]
     steps:
       - name: Checkout code
         uses: actions/checkout@master
@@ -53,6 +53,10 @@ jobs:
         uses: actions/download-artifact@v1
         with:
           name: dhall-mock-server-x86_64-unknown-linux-musl
+      - name: Download build for x86_64-pc-windows-gnu
+        uses: actions/download-artifact@v1
+        with:
+          name: dhall-mock-server-x86_64-pc-windows-gnu
       - name: Create Release
         id: create_release
         uses: actions/create-release@latest
@@ -84,6 +88,15 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: dhall-mock-server-x86_64-unknown-linux-musl/dhall_mock_server
           asset_name: dhall-mock-server-x86_64-linux-musl
+          asset_content_type: application/octet-stream
+      - name: Upload Windows binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dhall-mock-server-x86_64-pc-windows-gnu/dhall_mock_server
+          asset_name: dhall-mock-server-x86_64-pc-windows-gnu
           asset_content_type: application/octet-stream
 
   publish_release_docker_image:
