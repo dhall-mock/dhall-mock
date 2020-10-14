@@ -333,6 +333,7 @@ dependencies = [
  "rand",
  "rayon",
  "reqwest",
+ "retry",
  "rustls",
  "serde",
  "serde_dhall",
@@ -1387,6 +1388,15 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "winreg",
+]
+
+[[package]]
+name = "retry"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ddadf3a46af916aa0fe6b8283e676b6bb5cbdf835d986d98a49d7345072341e5"
+dependencies = [
+ "rand",
 ]
 
 [[package]]

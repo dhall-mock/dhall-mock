@@ -3,6 +3,7 @@ use std::time::Instant;
 
 use lazy_static::lazy_static;
 use rayon::{ThreadPool, ThreadPoolBuilder};
+use retry::retry;
 
 use log::info;
 
@@ -10,6 +11,7 @@ use anyhow::{anyhow, Context, Error};
 
 use super::compilation::compile_configuration;
 use super::model::{Expectation, IncomingRequest};
+use retry::delay::{jitter, Exponential};
 use tokio::sync::oneshot;
 
 pub struct State {
@@ -27,28 +29,34 @@ lazy_static! {
 }
 
 // Todo add Unit tests
-pub async fn load_configuration(
+pub async fn add_expectations_in_state(
     state: SharedState,
-    id: String,
-    configuration: String,
+    mut expectations: Vec<Expectation>,
 ) -> Result<(), Error> {
+    let mut state = retry(Exponential::from_millis(10).map(jitter).take(3), || {
+        state.write()
+    })
+    .map_err(|_| anyhow!("Can't acquire write lock on state"))?;
+    state.expectations.append(&mut expectations);
+    Ok(())
+}
+
+pub async fn load_dhall_expectation(
+    id: String,
+    dhall_content: String,
+) -> Result<Vec<Expectation>, Error> {
     let (s, r) = oneshot::channel();
     POOL.spawn(move || {
         info!("Start load {} config", id);
         let now = Instant::now();
         let result =
-            compile_configuration(&configuration).context(format!("Error compiling {}", id));
+            compile_configuration(&dhall_content).context(format!("Error compiling {}", id));
         info!("Loaded {}, in {} secs", id, now.elapsed().as_secs());
-        s.send(result).expect("Error sending result into channel");
+        s.send(result)
+            .expect("Internal error on communication between app and dhall runtimes");
     });
-    // TODO change unwrap
-    let result = r.await.expect("Error listening result into channel");
-    let mut expectation = result?;
-    let mut state = state
-        .write()
-        .map_err(|_| anyhow!("Can't acquire write lock on state"))?;
-    state.expectations.append(&mut expectation);
-    Ok(())
+    r.await
+        .expect("Internal error on communication between app and dhall runtimes")
 }
 
 // Todo add Unit tests

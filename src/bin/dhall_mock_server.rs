@@ -8,10 +8,13 @@ use futures::future::join_all;
 use log::{info, warn};
 use structopt::StructOpt;
 
-use dhall_mock::mock::service::{load_configuration, SharedState, State};
+use dhall_mock::mock::service::{
+    add_expectations_in_state, load_dhall_expectation, SharedState, State,
+};
 use dhall_mock::web::admin::AdminServerContext;
 use dhall_mock::web::mock::MockServerContext;
 use dhall_mock::{start_logger, start_servers};
+use futures::TryFutureExt;
 
 #[derive(StructOpt, Debug, Clone)]
 #[structopt(name = "dhall-mock")]
@@ -72,7 +75,10 @@ async fn load_configuration_file(
 ) -> Result<(), Error> {
     let configuration = fs::read_to_string(configuration_name.as_str())
         .context(format!("Error reading file {} content", configuration_name))?;
-    match load_configuration(state, configuration_name.clone(), configuration).await {
+    match load_dhall_expectation(configuration_name.clone(), configuration)
+        .and_then(|expectations| add_expectations_in_state(state, expectations))
+        .await
+    {
         Ok(()) => info!("Configuration {} loaded", configuration_name),
         Err(e) => warn!(
             "Error loading configuration {} : {:#}",

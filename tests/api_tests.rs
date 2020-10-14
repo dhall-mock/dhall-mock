@@ -10,10 +10,13 @@ use lazy_static::lazy_static;
 use reqwest::Client;
 
 use dhall_mock::mock::model::{Expectation, HttpMethod, HttpRequest, HttpResponse};
-use dhall_mock::mock::service::{load_configuration, SharedState, State};
+use dhall_mock::mock::service::{
+    add_expectations_in_state, load_dhall_expectation, SharedState, State,
+};
 use dhall_mock::start_servers;
 use dhall_mock::web::admin::AdminServerContext;
 use dhall_mock::web::mock::MockServerContext;
+use futures::TryFutureExt;
 
 lazy_static! {
     static ref PORT_USED: Arc<Mutex<Vec<(u16, u16)>>> = Arc::new(Mutex::new(vec![
@@ -54,7 +57,8 @@ async fn test_api() {
     let (state, web_port, _) = start_api().await;
 
     let conf = fs::read_to_string("./dhall/static.dhall").unwrap();
-    load_configuration(state.clone(), "Init conf".to_string(), conf)
+    load_dhall_expectation("Init conf".to_string(), conf)
+        .and_then(|expectations| add_expectations_in_state(state.clone(), expectations))
         .await
         .expect("Error loading ./dhall/static.dhall conf");
 
@@ -69,7 +73,8 @@ async fn test_admin_api() {
     let (state, _, admin_port) = start_api().await;
 
     let conf = fs::read_to_string("./dhall/static.dhall").unwrap();
-    load_configuration(state.clone(), "Init conf".to_string(), conf)
+    load_dhall_expectation("Init conf".to_string(), conf)
+        .and_then(|expectations| add_expectations_in_state(state.clone(), expectations))
         .await
         .expect("Error loading ./dhall/static.dhall conf");
 

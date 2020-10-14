@@ -5,10 +5,11 @@ use log::{debug, info};
 use anyhow::{anyhow, Context, Error};
 
 use super::not_found_response;
-use crate::mock::service::load_configuration;
 use crate::mock::service::SharedState;
+use crate::mock::service::{add_expectations_in_state, load_dhall_expectation};
 use crate::web::utils;
 use bytes::buf::BufExt;
+use futures::TryFutureExt;
 use std::io::Read;
 
 pub struct AdminServerContext {
@@ -67,7 +68,10 @@ async fn handler(req: Request<hyper::Body>, state: SharedState) -> Result<Respon
                 .reader()
                 .read_to_string(&mut read_body)?;
 
-            match load_configuration(state, "POST web configuration".to_string(), read_body).await {
+            match load_dhall_expectation("POST web configuration".to_string(), read_body)
+                .and_then(|expectations| add_expectations_in_state(state, expectations))
+                .await
+            {
                 Ok(()) => Response::builder()
                     .status(StatusCode::CREATED)
                     .body(Body::empty())
