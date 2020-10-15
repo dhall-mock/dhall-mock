@@ -1,33 +1,26 @@
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use log::{debug, info};
-use tokio::runtime::Handle;
 
 use anyhow::{anyhow, Context, Error};
 
 use super::not_found_response;
-use crate::mock::service::add_configuration;
 use crate::mock::service::SharedState;
+use crate::mock::service::{add_expectations_in_state, load_dhall_expectation};
 use crate::web::utils;
 use bytes::buf::BufExt;
+use futures::TryFutureExt;
 use std::io::Read;
 
 pub struct AdminServerContext {
     pub http_bind: String,
     pub state: SharedState,
-    // Not your obvious way of thinking I guess. THUG LIFE
-    pub loadind_rt_handle: Handle, // TODO Fn(Future) -> Future
 }
 
 pub(crate) async fn server(context: AdminServerContext) -> Result<(), Error> {
-    let AdminServerContext {
-        http_bind,
-        state,
-        loadind_rt_handle,
-    } = context;
+    let AdminServerContext { http_bind, state } = context;
     let make_svc = make_service_fn(move |_| {
         let state = state.clone();
-        let loadind_rt_handle = loadind_rt_handle.clone();
         async {
             Ok::<_, Error>(service_fn(move |req| {
                 debug!(
@@ -35,7 +28,7 @@ pub(crate) async fn server(context: AdminServerContext) -> Result<(), Error> {
                     req.method(),
                     req.uri().path()
                 );
-                handler(req, state.clone(), loadind_rt_handle.clone())
+                handler(req, state.clone())
             }))
         }
     });
@@ -51,12 +44,12 @@ pub(crate) async fn server(context: AdminServerContext) -> Result<(), Error> {
     server.await.context("Error on admin server execution")
 }
 
-async fn handler(
-    req: Request<hyper::Body>,
-    state: SharedState,
-    loadind_rt_handle: Handle,
-) -> Result<Response<Body>, Error> {
+async fn handler(req: Request<hyper::Body>, state: SharedState) -> Result<Response<Body>, Error> {
     match (req.method(), req.uri().path()) {
+        (&Method::GET, "/health") => Response::builder()
+            .status(StatusCode::OK)
+            .body(Body::empty())
+            .map_err(|_| anyhow!("Something bad happened.")),
         (&Method::GET, "/expectations") => {
             let read_state = state
                 .read()
@@ -75,13 +68,9 @@ async fn handler(
                 .reader()
                 .read_to_string(&mut read_body)?;
 
-            match loadind_rt_handle
-                .spawn(async {
-                    tokio::task::block_in_place(|| {
-                        add_configuration(state, "POST web configuration".to_string(), read_body)
-                    })
-                })
-                .await?
+            match load_dhall_expectation("POST web configuration".to_string(), read_body)
+                .and_then(|expectations| add_expectations_in_state(state, expectations))
+                .await
             {
                 Ok(()) => Response::builder()
                     .status(StatusCode::CREATED)

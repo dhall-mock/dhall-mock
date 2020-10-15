@@ -1,18 +1,20 @@
 extern crate dhall_mock;
 
-use anyhow::{Context, Error};
-use log::{info, warn};
-
+use std::fs;
 use std::sync::{Arc, RwLock};
 
-use dhall_mock::mock::service::{add_configuration, SharedState, State};
+use anyhow::{Context, Error};
+use futures::future::join_all;
+use log::{info, warn};
+use structopt::StructOpt;
+
+use dhall_mock::mock::service::{
+    add_expectations_in_state, load_dhall_expectation, SharedState, State,
+};
 use dhall_mock::web::admin::AdminServerContext;
 use dhall_mock::web::mock::MockServerContext;
-use dhall_mock::{create_loader_runtime, start_logger, start_servers};
-use std::borrow::BorrowMut;
-use std::fs;
-use structopt::StructOpt;
-use tokio::runtime::Runtime;
+use dhall_mock::{start_logger, start_servers};
+use futures::TryFutureExt;
 
 #[derive(StructOpt, Debug, Clone)]
 #[structopt(name = "dhall-mock")]
@@ -30,11 +32,9 @@ struct CliOpt {
     wait: bool,
 }
 
-fn main() -> Result<(), Error> {
+#[tokio::main]
+async fn main() -> Result<(), Error> {
     start_logger()?;
-    let mut web_rt = Runtime::new()?;
-    let mut loading_rt = create_loader_runtime()?;
-    let loading_rt_handle = loading_rt.handle().clone();
 
     let cli_args = CliOpt::from_args();
 
@@ -43,12 +43,18 @@ fn main() -> Result<(), Error> {
         expectations: vec![],
     }));
 
-    load_configuration_files(
-        loading_rt.borrow_mut(),
-        cli_args.wait,
-        state.clone(),
-        cli_args.configuration_files.into_iter(),
+    let load_configurations = join_all(
+        cli_args
+            .configuration_files
+            .into_iter()
+            .map(|configuration| load_configuration_file(state.clone(), configuration)),
     );
+
+    if cli_args.wait {
+        load_configurations.await;
+    } else {
+        tokio::task::spawn(load_configurations);
+    }
 
     let mock_server_context = MockServerContext {
         http_bind: cli_args.http_bind,
@@ -57,42 +63,27 @@ fn main() -> Result<(), Error> {
 
     let admin_server_context = AdminServerContext {
         http_bind: cli_args.admin_http_bind,
-        state: state,
-        loadind_rt_handle: loading_rt_handle,
+        state,
     };
 
-    let result = web_rt.block_on(start_servers(mock_server_context, admin_server_context));
-
-    result
+    start_servers(mock_server_context, admin_server_context).await
 }
 
-fn load_configuration_files(
-    target_runtime: &mut Runtime,
-    wait: bool,
+async fn load_configuration_file(
     state: SharedState,
-    configurations: impl Iterator<Item = String>,
-) {
-    for configuration in configurations {
-        match fs::read_to_string(configuration.as_str())
-            .context(format!("Error reading file {} content", configuration))
-        {
-            Ok(configuration_content) => {
-                let state = state.clone();
-                let load = move || match add_configuration(
-                    state,
-                    configuration.clone(),
-                    configuration_content,
-                ) {
-                    Ok(()) => info!("Configuration {} loaded", configuration),
-                    Err(e) => warn!("Error loading configuration {} : {:#}", configuration, e),
-                };
-                if wait {
-                    load();
-                } else {
-                    target_runtime.spawn(async move { tokio::task::block_in_place(load) });
-                }
-            }
-            Err(e) => warn!("Error loading configuration file : \n{:#}", e),
-        }
-    }
+    configuration_name: String,
+) -> Result<(), Error> {
+    let configuration = fs::read_to_string(configuration_name.as_str())
+        .context(format!("Error reading file {} content", configuration_name))?;
+    match load_dhall_expectation(configuration_name.clone(), configuration)
+        .and_then(|expectations| add_expectations_in_state(state, expectations))
+        .await
+    {
+        Ok(()) => info!("Configuration {} loaded", configuration_name),
+        Err(e) => warn!(
+            "Error loading configuration {} : {:#}",
+            configuration_name, e
+        ),
+    };
+    Ok(())
 }
